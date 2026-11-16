@@ -1,0 +1,612 @@
+import { mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
+import { secureDir, secureFile } from './fsperm.ts';
+import { urlIdentity } from './posting.ts';
+import { isValidTimeZone, toUtcIso } from './time.ts';
+import { isRecord } from './util.ts';
+
+export function jobTrackerHome(): string {
+  return process.env.JOB_TRACKER_HOME || join(homedir(), '.job-tracker');
+}
+
+export function defaultDbPath(): string {
+  return process.env.JOB_TRACKER_DB || join(jobTrackerHome(), 'tracker.db');
+}
+
+export const SCHEMA_V1 = `
+CREATE TABLE IF NOT EXISTS companies (
+  id INTEGER PRIMARY KEY,
+  name TEXT NOT NULL,
+  aliases TEXT NOT NULL DEFAULT '[]',
+  domain TEXT,
+  notes TEXT,
+  no_cold_apply INTEGER NOT NULL DEFAULT 0,
+  no_cold_apply_reason TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS roles (
+  id INTEGER PRIMARY KEY,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  title TEXT NOT NULL,
+  url TEXT,
+  ats TEXT,
+  location_line TEXT,
+  location_type TEXT,
+  comp_min INTEGER, comp_max INTEGER, comp_currency TEXT, comp_period TEXT, equity TEXT,
+  stack TEXT, industry TEXT, source TEXT,
+  first_seen TEXT NOT NULL, posted_at TEXT,
+  verified_at TEXT,
+  score REAL, score_notes TEXT,
+  status TEXT,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS roles_company ON roles(company_id);
+CREATE INDEX IF NOT EXISTS roles_url ON roles(url);
+CREATE TABLE IF NOT EXISTS events (
+  id INTEGER PRIMARY KEY,
+  role_id INTEGER NOT NULL REFERENCES roles(id),
+  ts TEXT NOT NULL,
+  status TEXT,
+  outcome TEXT,
+  category TEXT,
+  question TEXT,
+  blocked_by TEXT,
+  actor TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  evidence TEXT,
+  run_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS events_role ON events(role_id);
+CREATE INDEX IF NOT EXISTS events_ts ON events(ts);
+CREATE TABLE IF NOT EXISTS artifacts (
+  id INTEGER PRIMARY KEY,
+  role_id INTEGER REFERENCES roles(id),
+  kind TEXT NOT NULL,
+  path_or_ref TEXT,
+  content TEXT,
+  lint TEXT,
+  verified_at TEXT,
+  readback TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sources (
+  name TEXT PRIMARY KEY,
+  last_run TEXT,
+  status TEXT NOT NULL DEFAULT 'ok',
+  status_changed_at TEXT,
+  consecutive_failures INTEGER NOT NULL DEFAULT 0,
+  found INTEGER NOT NULL DEFAULT 0,
+  applied INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
+CREATE TABLE IF NOT EXISTS rules (
+  id INTEGER PRIMARY KEY,
+  text TEXT NOT NULL,
+  reason TEXT NOT NULL,
+  example TEXT,
+  added_by TEXT NOT NULL,
+  added_on TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS profile (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS documents (
+  name TEXT PRIMARY KEY,
+  content TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS interviews (
+  id INTEGER PRIMARY KEY,
+  role_id INTEGER NOT NULL REFERENCES roles(id),
+  starts_at TEXT,
+  tz TEXT,
+  stage TEXT,
+  people TEXT,
+  link TEXT,
+  booked_by TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS runs (
+  id INTEGER PRIMARY KEY,
+  kind TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  finished_at TEXT,
+  capabilities TEXT,
+  summary TEXT
+);
+`;
+
+// Row shapes for the current schema (SCHEMA_V1 plus MIGRATIONS). INTEGER flags are 0/1 numbers; JSON-text columns stay strings until parsed.
+export interface CompanyRow {
+  id: number;
+  name: string;
+  aliases: string;
+  domain: string | null;
+  notes: string | null;
+  no_cold_apply: number;
+  no_cold_apply_reason: string | null;
+  created_at: string;
+}
+
+export interface RoleRow {
+  id: number;
+  company_id: number;
+  title: string;
+  url: string | null;
+  ats: string | null;
+  location_line: string | null;
+  location_type: string | null;
+  comp_min: number | null;
+  comp_max: number | null;
+  comp_currency: string | null;
+  comp_period: string | null;
+  equity: string | null;
+  stack: string | null;
+  industry: string | null;
+  source: string | null;
+  first_seen: string;
+  posted_at: string | null;
+  verified_at: string | null;
+  score: number | null;
+  score_notes: string | null;
+  status: string | null;
+  updated_at: string;
+  asked_salary: string | null;
+}
+
+export interface RoleUrlRow {
+  role_id: number;
+  url: string;
+  normalized_url: string;
+  evidence: string | null;
+}
+
+export interface RolePostingRow {
+  role_id: number;
+  provider: string;
+  employer_key: string;
+  posting_id: string;
+}
+
+export interface RoleLinkRow {
+  duplicate_role_id: number;
+  canonical_role_id: number;
+  reason: string;
+  evidence: string;
+  created_at: string;
+}
+
+export interface EventRow {
+  id: number;
+  role_id: number;
+  ts: string;
+  status: string | null;
+  outcome: string | null;
+  category: string | null;
+  question: string | null;
+  blocked_by: string | null;
+  actor: string;
+  reason: string;
+  evidence: string | null;
+  run_id: number | null;
+  source: string | null;
+  source_account: string | null;
+  source_id: string | null;
+  received_at: string | null;
+}
+
+export interface ArtifactRow {
+  id: number;
+  role_id: number | null;
+  kind: string;
+  path_or_ref: string | null;
+  content: string | null;
+  lint: string | null;
+  verified_at: string | null;
+  readback: string | null;
+  created_at: string;
+  run_id: number | null;
+}
+
+export interface SourceRow {
+  name: string;
+  last_run: string | null;
+  status: string;
+  status_changed_at: string | null;
+  consecutive_failures: number;
+  found: number;
+  applied: number;
+  last_error: string | null;
+}
+
+export interface SourceCheckpointRow {
+  source: string;
+  source_account: string;
+  checked_through: string | null;
+  last_coverage: 'complete' | 'partial' | 'unavailable';
+  last_attempt_at: string;
+}
+
+export interface RuleRow {
+  id: number;
+  text: string;
+  reason: string;
+  example: string | null;
+  added_by: string;
+  added_on: string;
+  active: number;
+}
+
+export interface RuleTypeRow {
+  rule_id: number;
+  type: string;
+}
+
+export interface ProfileRow {
+  key: string;
+  value: string;
+}
+
+export interface DocumentRow {
+  name: string;
+  content: string;
+  updated_at: string;
+}
+
+export interface InterviewRow {
+  id: number;
+  role_id: number;
+  starts_at: string | null;
+  tz: string | null;
+  stage: string | null;
+  people: string | null;
+  link: string | null;
+  booked_by: string | null;
+  notes: string | null;
+  created_at: string;
+  // pending: a booking still to make; scheduled: has a time; cancelled: called off.
+  state: 'pending' | 'scheduled' | 'cancelled';
+  updated_at: string | null;
+  // The calendar event or message this row was recorded from, when it came from outside.
+  source: string | null;
+  source_account: string | null;
+  source_id: string | null;
+  // When the newest dated update applied to it happened (the message's or event's own time); null until one has, as for
+  // a row made by hand. Hand edits do not move it.
+  last_occurred_at: string | null;
+}
+
+// One applied change to an interview: what it was, what it became. before_json is null for a new row.
+export interface InterviewChangeRow {
+  id: number;
+  interview_id: number;
+  occurred_at: string;
+  received_at: string;
+  run_id: number | null;
+  before_json: string | null;
+  after_json: string;
+}
+
+export interface RunRow {
+  id: number;
+  kind: string;
+  started_at: string;
+  finished_at: string | null;
+  capabilities: string | null;
+  summary: string | null;
+}
+
+// Two processes opening a fresh database at once can both try to switch it to WAL. SQLite skips
+// the busy handler there when waiting would deadlock a lock upgrade, so one fails at once with
+// SQLITE_BUSY. Skip if already WAL; else retry. Worst case is about the deadline plus busy_timeout,
+// since a single attempt can itself block that long.
+function enableWal(db: DatabaseSync): void {
+  const deadline = Date.now() + 5000;
+  const sleep = new Int32Array(new SharedArrayBuffer(4));
+  for (;;) {
+    try {
+      const row = db.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
+      if (row.journal_mode !== 'wal') db.exec('PRAGMA journal_mode = WAL;');
+      return;
+    } catch (err) {
+      const code = (err as { errcode?: number }).errcode;
+      if (code === undefined || (code & 0xff) !== 5 || Date.now() > deadline) throw err; // 5 = SQLITE_BUSY, incl. extended codes
+      Atomics.wait(sleep, 0, 0, 20);
+    }
+  }
+}
+
+export function openDb(path: string = defaultDbPath(), { readOnly = false }: { readOnly?: boolean } = {}): DatabaseSync {
+  const onDisk = path !== ':memory:';
+  if (onDisk && !readOnly) {
+    const dir = dirname(resolve(path));
+    if (dir === resolve(jobTrackerHome())) secureDir(dir);
+    else mkdirSync(dir, { recursive: true });
+  }
+  const db = new DatabaseSync(path, readOnly ? { readOnly: true } : {});
+  // Another session or a hook may hold the write lock; wait for it instead of failing.
+  db.exec('PRAGMA busy_timeout = 5000;');
+  if (readOnly) {
+    schemaVersion(db, path); // refuse a newer database even when only reading
+    return db;
+  }
+  if (onDisk) {
+    secureFile(path); // before WAL: SQLite gives -wal and -shm the database file's mode
+    enableWal(db);
+  }
+  db.exec('PRAGMA foreign_keys = ON;');
+  migrate(db, path);
+  if (onDisk) for (const f of [`${path}-wal`, `${path}-shm`]) secureFile(f);
+  return db;
+}
+
+// BEGIN IMMEDIATE takes the write lock up front, so a read-then-write cannot lose a race.
+// Nested calls join the outer transaction: they neither begin nor commit, and an inner
+// failure only rolls anything back if it propagates out of the outermost call.
+const inTx = new WeakSet<DatabaseSync>();
+// The outermost transactions that readTx began. A write there would be a deferred transaction's lock upgrade.
+const readOnlyTx = new WeakSet<DatabaseSync>();
+export function tx<T>(db: DatabaseSync, fn: () => T): T {
+  // A bug in the caller, not something the model can fix, so it is a plain Error.
+  if (readOnlyTx.has(db)) throw new Error('tx was called inside readTx: a read transaction must not write.');
+  if (inTx.has(db)) return fn();
+  db.exec('BEGIN IMMEDIATE');
+  inTx.add(db);
+  try {
+    const out = fn();
+    db.exec('COMMIT');
+    return out;
+  } catch (err) {
+    // A failed COMMIT may already have ended the transaction; don't let ROLLBACK mask the real error.
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw err;
+  } finally {
+    inTx.delete(db);
+  }
+}
+
+// A read-only transaction: a deferred BEGIN takes no write lock, so it does not wait on or block the board
+// server's writes, and every query in `fn` sees one snapshot. Joins an outer transaction like `tx`. `fn` must
+// not write: tx refuses to run inside it, since a write could not upgrade a snapshot another connection has since changed.
+export function readTx<T>(db: DatabaseSync, fn: () => T): T {
+  if (inTx.has(db)) return fn();
+  db.exec('BEGIN');
+  inTx.add(db);
+  readOnlyTx.add(db);
+  try {
+    const out = fn();
+    db.exec('COMMIT');
+    return out;
+  } catch (err) {
+    if (db.isTransaction) db.exec('ROLLBACK');
+    throw err;
+  } finally {
+    readOnlyTx.delete(db);
+    inTx.delete(db);
+  }
+}
+
+export function now(): string {
+  return new Date().toISOString();
+}
+
+export const SCHEMA_VERSION = 10;
+
+// MIGRATIONS[i] takes the schema from version i + 1 to i + 2. Append only; never edit a shipped one.
+const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
+  // 2: run attribution for artifacts, an index for run-scoped reports, interview times in UTC.
+  (db) => {
+    db.exec('ALTER TABLE artifacts ADD COLUMN run_id INTEGER');
+    db.exec('CREATE INDEX IF NOT EXISTS events_run ON events(run_id)');
+    let fallback = 'UTC';
+    try {
+      const row = db.prepare("SELECT value FROM profile WHERE key = 'filters'").get() as Pick<ProfileRow, 'value'> | undefined;
+      const tz: unknown = JSON.parse(row?.value || '{}').timezone;
+      if (isValidTimeZone(tz)) fallback = tz;
+    } catch {
+      // Unreadable filters: keep UTC.
+    }
+    const update = db.prepare('UPDATE interviews SET starts_at = ? WHERE id = ?');
+    const rows = db.prepare('SELECT id, starts_at, tz FROM interviews WHERE starts_at IS NOT NULL').all() as Pick<InterviewRow, 'id' | 'starts_at' | 'tz'>[];
+    for (const i of rows) {
+      try {
+        update.run(toUtcIso(i.starts_at, isValidTimeZone(i.tz) ? i.tz : fallback), i.id);
+      } catch {
+        // Not a parseable time: leave it for the user to see.
+      }
+    }
+  },
+  // 3: every URL and ATS posting a role answers to. Keys are per role, not global: rows that already share a
+  // posting must survive the migration and show up as a lookup conflict, since which one is right is not ours to guess.
+  (db) => {
+    db.exec(`
+      CREATE TABLE role_urls (
+        role_id INTEGER NOT NULL REFERENCES roles(id),
+        url TEXT NOT NULL,
+        normalized_url TEXT NOT NULL,
+        evidence TEXT,
+        PRIMARY KEY (role_id, normalized_url)
+      );
+      CREATE INDEX role_urls_lookup ON role_urls(normalized_url);
+      CREATE TABLE role_postings (
+        role_id INTEGER NOT NULL REFERENCES roles(id),
+        provider TEXT NOT NULL,
+        employer_key TEXT NOT NULL,
+        posting_id TEXT NOT NULL,
+        PRIMARY KEY (role_id, provider, employer_key, posting_id)
+      );
+      CREATE INDEX role_postings_lookup ON role_postings(provider, employer_key, posting_id);
+    `);
+    // The SQL is written out here, not shared with the tracker, so this step stays what it was when it shipped.
+    const addUrl = db.prepare('INSERT OR IGNORE INTO role_urls(role_id, url, normalized_url, evidence) VALUES(?, ?, ?, NULL)');
+    const addKey = db.prepare('INSERT OR IGNORE INTO role_postings(role_id, provider, employer_key, posting_id) VALUES(?, ?, ?, ?)');
+    const rows = db.prepare("SELECT id, url FROM roles WHERE typeof(url) = 'text' ORDER BY id").all() as { id: number; url: string }[];
+    for (const r of rows) {
+      const { normalized_url, posting } = urlIdentity(r.url);
+      if (!normalized_url) continue;
+      addUrl.run(r.id, r.url, normalized_url);
+      if (posting) addKey.run(r.id, posting.provider, posting.employer_key, posting.posting_id);
+    }
+  },
+  // 4: historical duplicates linked to the role kept as their card. Both rows and everything pointing at them stay.
+  (db) => {
+    db.exec(`
+      CREATE TABLE role_links (
+        duplicate_role_id INTEGER PRIMARY KEY REFERENCES roles(id),
+        canonical_role_id INTEGER NOT NULL REFERENCES roles(id),
+        reason TEXT NOT NULL,
+        evidence TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX role_links_canonical ON role_links(canonical_role_id);
+    `);
+  },
+  // 5: rule types and a revision counter. The rules table is untouched, so text, provenance and every rule:<id>
+  // citation stay as they were; each existing rule, active or not, becomes global. The SQL is written out here.
+  (db) => {
+    db.exec(`
+      CREATE TABLE rule_types (
+        rule_id INTEGER NOT NULL REFERENCES rules(id),
+        type TEXT NOT NULL,
+        PRIMARY KEY (rule_id, type)
+      );
+      CREATE TABLE rule_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        revision INTEGER NOT NULL
+      );
+      INSERT INTO rule_types(rule_id, type) SELECT id, 'global' FROM rules;
+      INSERT INTO rule_state(id, revision) VALUES(1, 0);
+    `);
+  },
+  // 6: where an event came from. ts stays the time it happened (for events from a mailbox or board, the message's
+  // own time); received_at is when the tracker heard of it, which for every existing event was ts. The unique index
+  // covers external events only, so the many events without a source stay unconstrained. The SQL is written out here.
+  (db) => {
+    db.exec(`
+      ALTER TABLE events ADD COLUMN source TEXT;
+      ALTER TABLE events ADD COLUMN source_account TEXT;
+      ALTER TABLE events ADD COLUMN source_id TEXT;
+      ALTER TABLE events ADD COLUMN received_at TEXT;
+      UPDATE events SET received_at = ts;
+      CREATE UNIQUE INDEX events_external ON events(source, source_account, source_id) WHERE source IS NOT NULL AND source_account IS NOT NULL AND source_id IS NOT NULL;
+    `);
+  },
+  // 7: where the last fully successful scan of one source account ended, apart from sources.last_run, which moves on
+  // failure too. checked_through stays null until a complete scan; last_coverage and last_attempt_at record the latest
+  // attempt of any kind. The SQL is written out here.
+  (db) => {
+    db.exec(`
+      CREATE TABLE source_checkpoints (
+        source TEXT NOT NULL,
+        source_account TEXT NOT NULL,
+        checked_through TEXT,
+        last_coverage TEXT NOT NULL CHECK (last_coverage IN ('complete', 'partial', 'unavailable')),
+        last_attempt_at TEXT NOT NULL,
+        PRIMARY KEY (source, source_account)
+      );
+    `);
+  },
+  // 8: an interview has a state, apart from whether it has a time, so a booking can be confirmed in place, rescheduled
+  // or cancelled. A row with a time becomes scheduled, any other pending. The unique index covers rows that came from
+  // outside; interview_changes keeps what each applied update replaced. The SQL is written out here.
+  (db) => {
+    db.exec(`
+      ALTER TABLE interviews ADD COLUMN state TEXT NOT NULL DEFAULT 'pending' CHECK (state IN ('pending', 'scheduled', 'cancelled'));
+      ALTER TABLE interviews ADD COLUMN updated_at TEXT;
+      ALTER TABLE interviews ADD COLUMN source TEXT;
+      ALTER TABLE interviews ADD COLUMN source_account TEXT;
+      ALTER TABLE interviews ADD COLUMN source_id TEXT;
+      ALTER TABLE interviews ADD COLUMN last_occurred_at TEXT;
+      UPDATE interviews SET state = CASE WHEN starts_at IS NOT NULL THEN 'scheduled' ELSE 'pending' END, updated_at = created_at;
+      CREATE UNIQUE INDEX interviews_external ON interviews(source, source_account, source_id) WHERE source IS NOT NULL AND source_account IS NOT NULL AND source_id IS NOT NULL;
+      CREATE TABLE interview_changes (
+        id INTEGER PRIMARY KEY,
+        interview_id INTEGER NOT NULL REFERENCES interviews(id),
+        occurred_at TEXT NOT NULL,
+        received_at TEXT NOT NULL,
+        run_id INTEGER,
+        before_json TEXT,
+        after_json TEXT NOT NULL
+      );
+      CREATE INDEX interview_changes_interview ON interview_changes(interview_id);
+    `);
+  },
+  // 9: the last accepted dated interview values, including calls that changed no fields. Old histories cannot
+  // distinguish all local edits from external updates, so only a complete, unchanged history proves a baseline.
+  (db) => {
+    db.exec(`
+      CREATE TABLE interview_external_state (
+        interview_id INTEGER PRIMARY KEY REFERENCES interviews(id),
+        occurred_at TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL
+      );
+    `);
+    // Freeze this release's eight value fields and null normalization here, independent of later tracker changes.
+    const fields = ['starts_at', 'tz', 'stage', 'people', 'link', 'booked_by', 'notes', 'state'] as const;
+    const normalize = (value: unknown): string | null => {
+      if (!isRecord(value)) return null;
+      const row = value;
+      if (fields.some((k) => !Object.hasOwn(row, k) || (row[k] !== null && typeof row[k] !== 'string'))) return null;
+      if (!['pending', 'scheduled', 'cancelled'].includes(String(row.state))) return null;
+      return JSON.stringify(Object.fromEntries(fields.map((k) => [k, row[k] ?? null])));
+    };
+    const parse = (text: string): string | null => {
+      try {
+        return normalize(JSON.parse(text));
+      } catch {
+        return null; // Damaged or incomplete history is unknown, never guessed from the current row.
+      }
+    };
+    const history = db.prepare('SELECT before_json, after_json, received_at FROM interview_changes WHERE interview_id = ? ORDER BY id');
+    const save = db.prepare('INSERT INTO interview_external_state(interview_id, occurred_at, snapshot_json) VALUES(?, ?, ?)');
+    const rows = db.prepare('SELECT * FROM interviews WHERE last_occurred_at IS NOT NULL').all() as Pick<InterviewRow, 'id' | 'created_at' | 'last_occurred_at'>[];
+    for (const row of rows) {
+      const current = normalize(row);
+      const changes = history.all(row.id) as Pick<InterviewChangeRow, 'before_json' | 'after_json' | 'received_at'>[];
+      const first = changes[0];
+      if (!current || !first || first.before_json !== null || first.received_at !== row.created_at) continue;
+      if (changes.some((change, i) => parse(change.after_json) !== current || (i > 0 && (change.before_json === null || parse(change.before_json) !== current)))) continue;
+      save.run(row.id, row.last_occurred_at, current);
+    }
+  },
+  // 10: the salary the user asked for on the application form, verbatim as entered. Null for every existing role:
+  // what was asked before is not on record.
+  (db) => {
+    db.exec('ALTER TABLE roles ADD COLUMN asked_salary TEXT');
+  },
+];
+
+function schemaVersion(db: DatabaseSync, path: string): number {
+  const { user_version: v } = db.prepare('PRAGMA user_version').get() as { user_version: number };
+  if (v > SCHEMA_VERSION) throw new Error(`${path} is schema version ${v}, but this plugin knows up to ${SCHEMA_VERSION}. Update the plugin.`);
+  return v;
+}
+
+// One step per transaction, with the version re-read under the write lock: another process may
+// be migrating the same file, and a stale read would run a step twice or move the version backwards.
+function migrate(db: DatabaseSync, path: string): void {
+  if (schemaVersion(db, path) === SCHEMA_VERSION) return; // common case: no write lock
+  for (;;) {
+    const done = tx(db, () => {
+      const v = schemaVersion(db, path);
+      if (v >= SCHEMA_VERSION) return true;
+      if (v === 0) {
+        // Fresh file, or a database from before versioning (identical to v1): CREATE IF NOT EXISTS covers both.
+        db.exec(SCHEMA_V1);
+        db.exec('PRAGMA user_version = 1');
+        return false;
+      }
+      const step = MIGRATIONS[v - 1];
+      if (!step) throw new Error(`No migration from schema version ${v}.`);
+      step(db);
+      db.exec(`PRAGMA user_version = ${v + 1}`);
+      return false;
+    });
+    if (done) return;
+  }
+}

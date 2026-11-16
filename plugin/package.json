@@ -1,0 +1,11 @@
+{
+  "name": "job-tracker",
+  "version": "0.5.1",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "description": "Claude plugin for a disciplined job search. Zero runtime dependencies.",
+  "engines": {
+    "node": ">=22.18"
+  }
+}
