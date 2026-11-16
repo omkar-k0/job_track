@@ -1,0 +1,306 @@
+// Hermes host adapter: tool-name mapping, step log, skill unwrapping, and hooks/hermes.ts end to end.
+
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { beforeEach, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
+import { browserAction, isBrowser, isSendTool, resolveLabel, splitToolName } from '../plugin/hooks/lib/classify.ts';
+import { normalizeToolName } from '../plugin/hooks/lib/hosts/hermes.ts';
+import type { ToolStep } from '../plugin/hooks/lib/types.ts';
+
+let home: string;
+beforeEach(() => {
+  home = mkdtempSync(join(tmpdir(), 'jh-hermes-'));
+  process.env.JOB_TRACKER_HOME = home;
+  delete process.env.JOB_TRACKER_DB;
+});
+
+test('Hermes tool names map onto the mcp__server__tool shape the gates classify', () => {
+  assert.equal(normalizeToolName('mcp__job_hunt_tracker__open_items'), 'mcp__job_hunt_tracker__open_items');
+  assert.equal(normalizeToolName('connectors__gmail__send_email'), 'mcp__gmail__send_email');
+  assert.equal(normalizeToolName('browser_click'), 'mcp__hermes_browser__browser_click');
+  assert.equal(normalizeToolName('terminal'), 'terminal');
+  const send = splitToolName(normalizeToolName('connectors__gmail__send_email'));
+  assert.ok(isSendTool(send.server, send.short));
+  assert.ok(isBrowser(splitToolName(normalizeToolName('browser_click')).server));
+});
+
+test('step logs are owner-only', { skip: process.platform === 'win32' }, () => {
+  appendStep({ session_id: 'perm', tool_call_id: 'p1', tool_name: 'browser_snapshot', args: {}, result: '{}' });
+  assert.equal(statSync(stepsPath('perm')).mode & 0o777, 0o600);
+  assert.equal(statSync(join(home, 'sessions')).mode & 0o777, 0o700);
+});
+
+test('Hermes browser actions and @refs are understood', () => {
+  assert.equal(browserAction('browser_click', { ref: '@e5' }), 'click');
+  assert.equal(browserAction('browser_type', { ref: '@e3', text: 'x' }), 'input');
+  assert.equal(browserAction('browser_console', { expression: 'document.title' }), 'js');
+  assert.equal(browserAction('browser_console', {}), 'other');
+  assert.equal(browserAction('browser_exec', { code: 'js("1")' }), 'js');
+  assert.equal(browserAction('browser_press', { key: 'Enter' }), 'key');
+  const steps: ToolStep[] = [{ kind: 'result', id: 'a', name: 'mcp__hermes_browser__browser_snapshot', text: 'snapshot: - button "Submit application" [ref=e5]\n- link "Jobs" [ref=e50]', isError: false }];
+  assert.equal(resolveLabel({ ref: '@e5' }, steps), 'snapshot: - button "Submit application" [ref=e5]');
+});
+
+// --- Steps log ---
+
+import { appendStep, unwrapSkillInvocation, userText } from '../plugin/hooks/lib/hosts/hermes.ts';
+import { stepsPath } from '../plugin/hooks/lib/steps.ts';
+import { currentUrl, readTranscript, toolSteps } from '../plugin/hooks/lib/transcript.ts';
+
+const FIXTURE = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'hermes-skill-invocation.txt'), 'utf8');
+
+test('post_tool_call steps are stored in Claude transcript shape with readable result text', () => {
+  appendStep({ session_id: 's1', tool_call_id: 'c1', tool_name: 'browser_navigate', args: { url: 'https://jobs.ashbyhq.com/beta/1' }, result: JSON.stringify({ success: true, url: 'https://jobs.ashbyhq.com/beta/1' }) });
+  appendStep({ session_id: 's1', tool_call_id: 'c2', tool_name: 'browser_snapshot', args: {}, result: JSON.stringify({ success: true, snapshot: '- button "Submit application" [ref=e7]' }) });
+  appendStep({ session_id: 's1', tool_call_id: 'c3', tool_name: 'mcp__job_hunt_tracker__open_items', args: {}, result: JSON.stringify({ error: 'boom' }) });
+  const steps = toolSteps(readTranscript(stepsPath('s1')));
+  assert.equal(steps.length, 6);
+  assert.deepEqual(steps[0], { kind: 'use', id: 'c1', name: 'mcp__hermes_browser__browser_navigate', input: { url: 'https://jobs.ashbyhq.com/beta/1' } });
+  const snapshot = steps[3];
+  assert.ok(snapshot?.kind === 'result');
+  assert.match(snapshot.text, /^snapshot: - button "Submit application" \[ref=e7\]/m);
+  const failed = steps[5];
+  assert.ok(failed?.kind === 'result');
+  assert.equal(failed.isError, true);
+  assert.equal(currentUrl(steps), 'https://jobs.ashbyhq.com/beta/1');
+});
+
+test('slash-skill messages unwrap to the typed command; only the user instruction counts', () => {
+  assert.deepEqual(unwrapSkillInvocation('/job-tracker:approve 12'), { text: '/job-tracker:approve 12', skill: null, args: null });
+  assert.deepEqual(unwrapSkillInvocation(FIXTURE), { text: '/job-tracker:approve 12', skill: 'job-tracker:approve', args: '12' });
+  assert.equal(userText([{ type: 'text', text: 'hello' }, { type: 'image_url', image_url: {} }]), 'hello');
+  assert.equal(userText(FIXTURE), '/job-tracker:approve 12');
+});
+
+// --- hooks/hermes.ts e2e ---
+
+import { boardMove } from '../plugin/servers/tracker/src/board-api.ts';
+import { openDb } from '../plugin/servers/tracker/src/db.ts';
+import { Tracker } from '../plugin/servers/tracker/src/tracker.ts';
+
+const HOOK = join(dirname(fileURLToPath(import.meta.url)), '..', 'plugin', 'hooks', 'hermes.ts');
+const TRACKER = 'mcp__job_hunt_tracker__';
+
+function hermes(event: string, payload: Record<string, unknown>) {
+  const r = spawnSync(process.execPath, ['--no-warnings', HOOK, event], { input: JSON.stringify(payload), env: { ...process.env, JOB_TRACKER_HOME: home }, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  return r.stdout.trim() ? JSON.parse(r.stdout) : null;
+}
+
+function verifiedRole() {
+  const t = new Tracker(openDb(join(home, 'tracker.db')));
+  const role = t.upsertRole({ company: 'Beta', title: 'Founding Engineer', url: 'https://jobs.ashbyhq.com/beta/1', source: 'ashby' }).role;
+  t.transition({ role_id: role.id, to: 'verified', reason: 'checked', evidence: 'https://jobs.ashbyhq.com/beta/1 "Remote (EU)"', location_line: 'Remote (EU)', location_type: 'remote' });
+  t.db.close();
+  return role;
+}
+
+test('hermes.ts: connector send tools are blocked, unrelated tools pass silently', () => {
+  const out = hermes('pre_tool_call', { session_id: 'h1', tool_name: 'connectors__gmail__send_email', args: { to: 'a@b.c', body: 'hi' } });
+  assert.equal(out.action, 'block');
+  assert.match(out.message, /drafts/);
+  assert.equal(hermes('pre_tool_call', { session_id: 'h1', tool_name: 'mcp__github__list_issues', args: {} }), null);
+});
+
+test('hermes.ts: a submit click needs the user approval typed as /job-tracker:approve', () => {
+  const role = verifiedRole();
+  const sid = 'h2';
+  hermes('pre_tool_call', { session_id: sid, tool_name: `${TRACKER}open_items`, args: {} }); // marks the session
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'n1', tool_name: 'browser_navigate', args: { url: 'https://jobs.ashbyhq.com/beta/1' }, result: JSON.stringify({ success: true, url: 'https://jobs.ashbyhq.com/beta/1' }) });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'n2', tool_name: 'browser_snapshot', args: {}, result: JSON.stringify({ success: true, snapshot: '- button "Submit application" [ref=e7]' }) });
+  const click = { session_id: sid, tool_name: 'browser_click', args: { ref: '@e7' } };
+  assert.match(hermes('pre_tool_call', click).message, /needs the user's approval/);
+  const approved = hermes('pre_llm_call', { session_id: sid, user_message: FIXTURE.replace(/: 12\s*$/, `: ${role.id}`) });
+  assert.match(approved.context, /gate_check passed/);
+  assert.match(approved.context, new RegExp(`\\$ARGUMENTS = "${role.id}"`));
+  assert.equal(hermes('pre_tool_call', click), null);
+  assert.match(hermes('pre_tool_call', click).message, /needs the user's approval/, 'approval is consumed by one submit attempt');
+});
+
+// Applied to, rejected, then dragged back to the queue on the board. The hook reads it from a file it cannot write.
+function reopenedRole() {
+  const t = new Tracker(openDb(join(home, 'tracker.db')));
+  const role = t.upsertRole({ company: 'Beta', title: 'Founding Engineer', url: 'https://jobs.ashbyhq.com/beta/1', source: 'ashby' }).role;
+  t.transition({ role_id: role.id, to: 'verified', reason: 'checked', evidence: 'https://jobs.ashbyhq.com/beta/1 "Remote (EU)"', location_line: 'Remote (EU)', location_type: 'remote' });
+  t.transition({ role_id: role.id, to: 'scored', reason: 'fits', score: 8 });
+  t.transition({ role_id: role.id, to: 'queued', reason: 'top pick' });
+  t.transition({ role_id: role.id, to: 'applied', reason: 'submitted', evidence: 'Thanks for applying to Beta!' });
+  t.record({ role_id: role.id, status: 'closed', outcome: 'rejected', reason: 'Rejection email', evidence: 'Not moving forward', actor: 'employer' });
+  boardMove(t, { role_id: role.id, to: 'queued' });
+  t.db.close();
+  chmodSync(join(home, 'tracker.db'), 0o400);
+  return role;
+}
+
+test('hermes.ts: a submit is blocked for a posting applied to before, even after a move back to the queue', { skip: process.platform === 'win32' }, () => {
+  const role = reopenedRole();
+  const sid = 'h6';
+  hermes('pre_tool_call', { session_id: sid, tool_name: `${TRACKER}open_items`, args: {} });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'n1', tool_name: 'browser_navigate', args: { url: 'https://jobs.ashbyhq.com/beta/1' }, result: JSON.stringify({ success: true, url: 'https://jobs.ashbyhq.com/beta/1' }) });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'n2', tool_name: 'browser_snapshot', args: {}, result: JSON.stringify({ success: true, snapshot: '- button "Submit application" [ref=e7]' }) });
+  const approved = hermes('pre_llm_call', { session_id: sid, user_message: `/job-tracker:approve ${role.id}` });
+  assert.match(approved.context, /gate_check fails: .*This posting was applied to before/);
+  const out = hermes('pre_tool_call', { session_id: sid, tool_name: 'browser_click', args: { ref: '@e7' } });
+  assert.equal(out.action, 'block');
+  assert.match(out.message, new RegExp(`Submit blocked for role ${role.id}: .*This posting was applied to before: role ${role.id} was closed \\(rejected\\)`));
+});
+
+test('hermes.ts: a subagent turn cannot grant approval', () => {
+  const role = verifiedRole();
+  const out = hermes('pre_llm_call', { session_id: 'child', parent_session_id: 'h3', user_message: `/job-tracker:approve ${role.id}` });
+  assert.equal(out, null);
+  assert.match(hermes('pre_tool_call', { session_id: 'child', tool_name: 'browser_console', args: { expression: "document.querySelector('form').requestSubmit()" } }) ?.message ?? 'not-marked', /not-marked|approval/);
+});
+
+test('hermes.ts: the browser cannot open or work the board', () => {
+  const board = `http://127.0.0.1:54408/#t=${'ab'.repeat(32)}`;
+  assert.match(hermes('pre_tool_call', { session_id: 'h5', tool_name: 'browser_navigate', args: { url: board } }).message, /board is the user's/);
+  hermes('post_tool_call', { session_id: 'h5', tool_call_id: 'b1', tool_name: 'browser_navigate', args: { url: board }, result: JSON.stringify({ success: true, url: board }) });
+  assert.match(hermes('pre_tool_call', { session_id: 'h5', tool_name: 'browser_click', args: { ref: '@e3' } }).message, /board is the user's/);
+  assert.equal(hermes('pre_tool_call', { session_id: 'h5', tool_name: 'browser_snapshot', args: {} }), null);
+});
+
+test('hermes.ts: an unfinished sweep queues a nudge that the next turn receives', () => {
+  const sid = 'h4';
+  hermes('pre_llm_call', { session_id: sid, user_message: '/job-tracker:sweep' });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'u1', tool_name: `${TRACKER}upsert_role`, args: { company: 'A', title: 'B' }, result: JSON.stringify({ role: { id: 1, title: 'B' }, created: true }) });
+  const stop = hermes('post_llm_call', { session_id: sid });
+  assert.equal(stop.action, 'continue');
+  assert.match(stop.message, /render_report/);
+  const next = hermes('pre_llm_call', { session_id: sid, user_message: 'ok' });
+  assert.match(next.context, /The sweep is not finished/);
+  assert.equal(hermes('pre_llm_call', { session_id: sid, user_message: 'ok' }), null, 'the nudge is delivered once');
+});
+
+test('hermes.ts: an event written through a linked duplicate\'s old id counts for the role upsert_role returned', () => {
+  const sid = 'h7';
+  hermes('pre_llm_call', { session_id: sid, user_message: '/job-tracker:sweep' });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'u1', tool_name: `${TRACKER}upsert_role`, args: { id: 2, title: 'B' }, result: JSON.stringify({ role: { id: 1, title: 'B' }, created: false }) });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 't1', tool_name: `${TRACKER}transition`, args: { role_id: 2, to: 'dropped' }, result: JSON.stringify({ role: { id: 1, status: 'dropped' }, from: 'scored', to: 'dropped' }) });
+  const stop = hermes('post_llm_call', { session_id: sid });
+  assert.doesNotMatch(stop.message, /no transition\/record event/);
+  assert.match(stop.message, /render_report/, 'only the missing report is left');
+});
+
+const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
+const PLUGIN = join(REPO, 'plugin');
+
+test('plugin.yaml, plugin.json and both package.json files carry the same version', () => {
+  const yaml = readFileSync(join(PLUGIN, 'plugin.yaml'), 'utf8').match(/^version:\s*"?([^"\n]+)"?/m)?.[1];
+  const claude = JSON.parse(readFileSync(join(PLUGIN, '.claude-plugin', 'plugin.json'), 'utf8')).version;
+  assert.equal(yaml, claude);
+  for (const dir of [REPO, PLUGIN]) assert.equal(JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8')).version, claude, join(dir, 'package.json'));
+});
+
+test('the plugin root has no lockfile, so Claude Code installs nothing for users', () => {
+  // Claude Code installs the packages a lockfile next to the plugin's package.json lists, on every install and
+  // update. The plugin needs none at runtime; the dev tools and their lockfile live in dev/.
+  for (const dir of [REPO, PLUGIN]) {
+    for (const lock of ['package-lock.json', 'npm-shrinkwrap.json', 'bun.lock', 'bun.lockb']) {
+      assert.equal(existsSync(join(dir, lock)), false, `${lock} in ${dir}`);
+    }
+    const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
+    assert.equal(pkg.dependencies, undefined, 'no runtime dependencies');
+    assert.equal(pkg.devDependencies, undefined, 'dev dependencies belong in dev/package.json');
+  }
+});
+
+test('the marketplace ships plugin/ only, with no tests or dev files in it', () => {
+  // The directory scanner reads every shipped file; tests and dev tooling stay outside plugin/ so they are not
+  // part of the plugin users install.
+  const market = JSON.parse(readFileSync(join(REPO, '.claude-plugin', 'marketplace.json'), 'utf8'));
+  assert.deepEqual(
+    market.plugins.map((p: { source: string }) => p.source),
+    ['./plugin'],
+  );
+  const shipped = readdirSync(PLUGIN, { recursive: true, encoding: 'utf8' });
+  const stray = shipped.filter((f) => /(^|\/)(test|tests|fixtures|dev|node_modules)(\/|$)|\.test\.ts$|(^|\/)test_[^/]*\.py$/.test(f));
+  assert.deepEqual(stray, []);
+});
+
+// A stand-in for the hermes CLI: `mcp add` asks "Enable all N tools? [Y/n/select]" on stdin, saves the server on
+// Y or Enter, and cancels on anything else or on end of input, exiting 0 either way (as hermes 0.22 does).
+// `config get` prints the whole config, which is enough for the installer's check.
+function fakeHermes(answerEverything = true): { bin: string; home: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'jh-hermes-install-'));
+  const bin = join(dir, 'bin');
+  mkdirSync(bin);
+  const save = answerEverything
+    ? 'for last; do :; done; case "$answer" in ""|y|Y) printf "mcp_servers:\\n  job_hunt_tracker:\\n    args:\\n      - %s\\n" "$last" >> "$HERMES_HOME/config.yaml"; exit 0;; esac'
+    : '';
+  writeFileSync(
+    join(bin, 'hermes'),
+    `#!/usr/bin/env bash
+if [ "$1 $2" = "mcp add" ]; then
+  printf 'Enable all 33 tools? [Y/n/select]: '
+  if IFS= read -r answer; then
+    ${save}
+    :
+  fi
+  echo 'Cancelled.'
+fi
+if [ "$1 $2" = "config get" ]; then cat "$HERMES_HOME/config.yaml" 2>/dev/null; fi
+exit 0
+`,
+  );
+  chmodSync(join(bin, 'hermes'), 0o755);
+  return { bin, home: join(dir, 'hermes-home') };
+}
+
+function runHermesInstall(fake: { bin: string; home: string }) {
+  return spawnSync('bash', [join(PLUGIN, 'scripts', 'hermes-install.sh')], {
+    encoding: 'utf8',
+    input: '',
+    env: { ...process.env, PATH: `${fake.bin}:${process.env.PATH}`, HERMES_HOME: fake.home },
+  });
+}
+
+test('hermes-install.sh registers the tracker without anyone answering the tool prompt', () => {
+  // `hermes mcp add` asks whether to enable the tools and cancels on end of input, so an installer run from a
+  // script, or by an agent, used to print "Done" with no tracker registered.
+  const fake = fakeHermes();
+  const r = runHermesInstall(fake);
+  assert.equal(r.status, 0, r.stderr);
+  const config = readFileSync(join(fake.home, 'config.yaml'), 'utf8');
+  assert.ok(config.includes(`- ${join(PLUGIN, 'servers', 'tracker', 'src', 'index.ts')}`), config);
+  assert.match(r.stdout, /Done\. Restart Hermes/);
+});
+
+test('hermes-install.sh fails, without saying Done, when the tracker did not get registered', () => {
+  const fake = fakeHermes(false);
+  const r = runHermesInstall(fake);
+  assert.notEqual(r.status, 0);
+  assert.doesNotMatch(r.stdout, /Done\./);
+  assert.match(r.stderr, /job_hunt_tracker/);
+});
+
+test('hermes.ts: in Gmail, Ctrl+Enter is blocked as a send', () => {
+  const sid = 'h-gmail-key';
+  hermes('pre_tool_call', { session_id: sid, tool_name: `${TRACKER}open_items`, args: {} }); // marks the session
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'g1', tool_name: 'browser_navigate', args: { url: 'https://mail.google.com/mail/u/0/#drafts' }, result: JSON.stringify({ success: true, url: 'https://mail.google.com/mail/u/0/#drafts' }) });
+  const out = hermes('pre_tool_call', { session_id: sid, tool_name: 'browser_press', args: { key: 'Control+Enter' } });
+  assert.equal(out?.action, 'block');
+  assert.match(out.message, /sends the email in Gmail/);
+  assert.equal(hermes('pre_tool_call', { session_id: sid, tool_name: 'browser_press', args: { key: 'Enter' } }), null);
+});
+
+test('hermes.ts: saved auto-apply allows eligible submissions and disabling it restores review', () => {
+  const role = verifiedRole();
+  const t = new Tracker(openDb(join(home, 'tracker.db')));
+  t.transition({ role_id: role.id, to: 'scored', reason: 'fits', score: 8 });
+  t.transition({ role_id: role.id, to: 'queued', reason: 'ready' });
+  t.saveConfig({ section: 'autonomy', data: { auto_apply: true } });
+  const sid = 'auto';
+  hermes('pre_tool_call', { session_id: sid, tool_name: `${TRACKER}open_items`, args: {} });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'n1', tool_name: 'browser_navigate', args: { url: role.url }, result: JSON.stringify({ url: role.url }) });
+  hermes('post_tool_call', { session_id: sid, tool_call_id: 'n2', tool_name: 'browser_snapshot', args: {}, result: JSON.stringify({ snapshot: '- button "Submit application" [ref=e7]' }) });
+  const click = { session_id: sid, tool_name: 'browser_click', args: { ref: '@e7' } };
+  assert.equal(hermes('pre_tool_call', click), null);
+  t.saveConfig({ section: 'autonomy', data: { auto_apply: false } });
+  assert.match(hermes('pre_tool_call', click).message, /needs the user's approval/);
+  t.db.close();
+});
