@@ -395,7 +395,7 @@ export function now(): string {
   return new Date().toISOString();
 }
 
-export const SCHEMA_VERSION = 10;
+export const SCHEMA_VERSION = 11;
 
 // MIGRATIONS[i] takes the schema from version i + 1 to i + 2. Append only; never edit a shipped one.
 const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
@@ -578,6 +578,14 @@ const MIGRATIONS: ((db: DatabaseSync) => void)[] = [
   // what was asked before is not on record.
   (db) => {
     db.exec('ALTER TABLE roles ADD COLUMN asked_salary TEXT');
+  },
+  // 11: usage analytics are gone, so the opt-in and its random install id (profile key usage_analytics) and the
+  // setup decision recorded for it are deleted rather than kept as data nothing reads. The SQL is written out here.
+  (db) => {
+    db.exec(`
+      DELETE FROM profile WHERE key = 'usage_analytics';
+      UPDATE profile SET value = json_remove(value, '$.usage_analytics') WHERE key = '_decisions' AND json_valid(value) AND json_type(value) = 'object';
+    `);
   },
 ];
 

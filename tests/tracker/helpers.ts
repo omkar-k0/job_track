@@ -1,7 +1,13 @@
 // Shared by tests in more than one file.
 
+// Turns a current database into the release that still had usage analytics (schema v10). Migration 11 only deletes rows.
+export const REWIND_TO_V10 = `
+  PRAGMA user_version = 10;
+`;
+
 // Turns a current database into the release before the asked salary (schema v9).
 export const REWIND_TO_V9 = `
+  ${REWIND_TO_V10}
   ALTER TABLE roles DROP COLUMN asked_salary;
   PRAGMA user_version = 9;
 `;

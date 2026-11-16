@@ -1,0 +1,30 @@
+# Changelog
+
+## 0.6.0
+
+First release of this repository as an independent project.
+
+- **Imported from upstream 0.5.1.** The code was imported from
+  [job-tracker-mcp](https://github.com/adamwardecki/job-tracker-mcp) 0.5.1 by Adam Wardecki (MIT) as a
+  plain copy, not a GitHub fork, and is maintained separately. Both copyright notices are kept in
+  [LICENSE](LICENSE). The marketplace, install commands and links now point to `omkar-k0/job_track`.
+- **Telemetry removed.** No usage analytics, no crash reports, no phone-home. The `set_usage_analytics` tool,
+  the setup step that asked for it and the marketing website are gone; migration 11 deletes any stored
+  analytics consent and install id. A test fails if a network call or analytics code comes back.
+- **New tools.** `follow_ups` (applications with no reply, interviews with no outcome recorded),
+  `funnel_stats` (stage conversion, reply rate by source, applications per week) and `export_data` (roles,
+  companies, events and interviews as JSON or CSV in `~/.job-tracker/exports/`). All read-only on the
+  pipeline and local.
+- **Board.** Search and filters (status, source, work mode, score) kept in the URL fragment, a sortable table
+  view of every role, a details drawer per role (`GET /api/role/:id`), a stats header, dark mode, and
+  keyboard shortcuts (`/` to search, arrows to move, Enter to open, Esc to close).
+- **German and EU early-career support.** Werkstudent, internship, Pflichtpraktikum, thesis and first-job
+  searches: new config keys `filters.employment_types`, `filters.weekly_hours`, `filters.enrolled`,
+  `filters.languages` (CEFR levels) and `writing.language` (`auto`, `de`, `en`); German sources; Anschreiben
+  conventions and a German stock-phrase check in the prose linter; drop categories `language` and
+  `employment_type`. See [docs/germany.md](docs/germany.md).
+- **German safety-hook patterns.** The personal-data, consent and submit gates now recognise German labels
+  (Geburtsdatum, Staatsangehörigkeit, Familienstand, Steuer-ID, Matrikelnummer; Einwilligung, Talentpool,
+  Newsletter; "Bewerbung absenden", "Jetzt bewerben" and others), with umlauts or ae/oe/ue/ss spellings.
+- **Faster tests.** The Node test suite runs in about 25 s instead of about 480 s; the headless-Chrome tests
+  share one probe and skip quickly where Chrome cannot render.

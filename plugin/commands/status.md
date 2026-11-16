@@ -15,5 +15,6 @@ Show the user a short job-hunt status.
    - **Unverified drafts**: say they are not confirmed in Gmail yet.
    - Counts by status in one line.
 3. Lead with the most urgent item. No recap, no closing summary.
+4. If the user asks for more than this summary: `funnel_stats` gives the funnel and conversion counts, `follow_ups` lists applications that are due a nudge, and `export_data` exports the tracker. Offer them by name in one line; do not call them unprompted.
 
 Read only. Do not change any state.

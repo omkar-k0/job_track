@@ -11,7 +11,7 @@ import { openDb, readTx, SCHEMA_V1, SCHEMA_VERSION, tx } from '../../plugin/serv
 import { secureDir, secureFile } from '../../plugin/servers/tracker/src/fsperm.ts';
 import { importLegacy } from '../../plugin/servers/tracker/src/legacy.ts';
 import { Tracker } from '../../plugin/servers/tracker/src/tracker.ts';
-import { REWIND_TO_V5, REWIND_TO_V6, REWIND_TO_V7, REWIND_TO_V8, REWIND_TO_V9 } from './helpers.ts';
+import { REWIND_TO_V5, REWIND_TO_V6, REWIND_TO_V7, REWIND_TO_V8, REWIND_TO_V9, REWIND_TO_V10 } from './helpers.ts';
 
 const tempDb = () => join(mkdtempSync(join(tmpdir(), 'jh-db-')), 'tracker.db');
 const addRule = (db: ReturnType<typeof openDb>, text: string) =>
@@ -707,3 +707,42 @@ function verifyAndQueue(t: Tracker, role_id: number): void {
   t.transition({ role_id, to: 'scored', reason: 'Fits' });
   t.transition({ role_id, to: 'queued', reason: 'Next' });
 }
+
+test('migration 11 deletes the usage analytics opt-in, its install id and its setup decision, and keeps the rest', () => {
+  const path = tempDb();
+  openDb(path).close();
+  const raw = new DatabaseSync(path);
+  raw.exec(REWIND_TO_V10);
+  raw.prepare("INSERT INTO profile(key, value) VALUES('usage_analytics', ?)").run(JSON.stringify({ allowed: true, decided_at: '2026-01-01T00:00:00.000Z', install_id: '00000000-0000-4000-8000-000000000000' }));
+  raw.prepare("INSERT INTO profile(key, value) VALUES('_decisions', ?)").run(JSON.stringify({ usage_analytics: 'declined', browser: 'no browser, accepted' }));
+  raw.prepare("INSERT INTO profile(key, value) VALUES('filters', ?)").run(JSON.stringify({ timezone: 'Europe/Berlin' }));
+  raw.close();
+  const db = openDb(path);
+  try {
+    assert.equal(userVersion(db), SCHEMA_VERSION);
+    const rows = Object.fromEntries(db.prepare('SELECT key, value FROM profile').all().map((r) => [r.key, r.value]));
+    assert.equal(rows.usage_analytics, undefined);
+    assert.deepEqual(JSON.parse(String(rows._decisions)), { browser: 'no browser, accepted' });
+    assert.deepEqual(JSON.parse(String(rows.filters)), { timezone: 'Europe/Berlin' });
+    const t = new Tracker(db);
+    assert.ok(!t.setupStatus().items.some((i) => i.key === 'usage_analytics'));
+  } finally {
+    db.close();
+  }
+});
+
+test('migration 11 leaves a damaged _decisions value alone instead of failing the upgrade', () => {
+  const path = tempDb();
+  openDb(path).close();
+  const raw = new DatabaseSync(path);
+  raw.exec(REWIND_TO_V10);
+  raw.prepare("INSERT INTO profile(key, value) VALUES('_decisions', 'not json')").run();
+  raw.close();
+  const db = openDb(path);
+  try {
+    assert.equal(userVersion(db), SCHEMA_VERSION);
+    assert.equal((db.prepare("SELECT value FROM profile WHERE key = '_decisions'").get() as { value: string }).value, 'not json');
+  } finally {
+    db.close();
+  }
+});

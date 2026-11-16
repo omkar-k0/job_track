@@ -12,7 +12,7 @@ Load the employer's own posting, quote it, and decide. This step is the only way
 - **Load the rules first.** Rules: load `scoring` (Reading rules: `${CLAUDE_PLUGIN_ROOT}/templates/rules.md`; Hermes: `${HERMES_SKILL_DIR}/../../templates/rules.md`). Do it before recording any `rule:<id>` drop.
 - **Aggregator tags are leads, never verdicts.** Location, industry, seniority, salary and "Remote" from LinkedIn, boards, brokers or recruiters are unverified. Before writing any drop reason, open the employer's page and **quote it**. Why: wrong drops happened on stale tags, and wrong approvals happened four times on "Remote" tags that the ATS contradicted (e.g. "Hybrid (8 days/month)").
 - **The live employer ATS is the authority.** A careers page, ATS posting or the apply form itself. Not a recruiter's rewrite, not a cached aggregator copy.
-- **Every `verified` needs** `evidence` (the ATS URL plus the verbatim location line), `location_line` (verbatim) and `location_type` (`remote` | `hybrid` | `onsite` | `unknown`).
+- **Every `verified` needs** `evidence` (the ATS URL plus the verbatim location line, then the verbatim employment-type, weekly-hours and language lines when the posting has them), `location_line` (verbatim) and `location_type` (`remote` | `hybrid` | `onsite` | `unknown`).
 - **Every `dropped` needs** `evidence`: a verbatim employer quote, a URL plus quote, or `rule:<id>`.
 - **Conflicting employer sources → flag, never pick the optimistic reading.** If the employer's own sources disagree on a hard filter (e.g. "remote" in their HN post, "Hybrid" on their ATS), do not drop and do not approve. `transition` to `verified` (you did read the employer's page) with **both quotes** in `evidence`, and hand the single question to `score-role`, which queues the role with that `question` for the user.
 - **Forms are evidence too.** A screening question like "Can you work onsite 3 days a week?" or "Do you have the right to work in <country>?" overrides "Remote" in the posting.
@@ -26,13 +26,14 @@ Load the employer's own posting, quote it, and decide. This step is the only way
    - Posting gone (404, "no longer active", redirect to the board root): `transition` to `dropped`, reason "posting closed", evidence = URL plus the message seen.
 4. **Read, in this order, and copy verbatim:**
    1. Location line and workplace/location type. Secondary locations. Any country list.
-   2. The employer's identity: the About block, who actually employs the hire. Recruiting agency or staffing firm presenting a client is a different employer.
-   3. Pay band if published, with currency and period.
+   2. The employer's identity: the About block, who actually employs the hire. Recruiting agency or staffing firm presenting a client is a different employer. For a German employer the careers site's Impressum names the legal entity (GmbH, AG and so on): use it when a board shows only a brand or a recruiter.
+   3. Pay band if published, with currency and period (hour, month or year; for part-time pay also the weekly hours it assumes).
    4. Deadline field and any application caps ("may not apply more than N times in 60 days").
    5. Open-position count on the board.
-   6. If the apply form is reachable without login: its screening questions (Greenhouse `?questions=true` works by fetch).
+   6. **Employment type, hours, start and language**, verbatim: the type words ("Werkstudent", "Praktikum", "Pflichtpraktikum", "Abschlussarbeit", "Teilzeit", "befristet"), weekly hours and any lecture-period or semester-break rule, start date and duration, whether enrolment is required, the language the posting is written in, and every language requirement with its level words ("fließend", "verhandlungssicher", "B2", "von Vorteil"). `score-role` decides on them; you only copy them.
+   7. If the apply form is reachable without login: its screening questions (Greenhouse `?questions=true` works by fetch).
 5. **Check the tells below.** Each produces a drop (with quote) or a question for the user (passed to `score-role`).
-6. **Record.** If the role passes: `transition` to `verified` with `evidence`, `location_line`, `location_type`, and update the role with any comp, stack, industry and ATS details via `upsert_role` (with `id`). Otherwise `transition` to `dropped` with the quote and a `category` (`location`, `pay`, `industry`, `role_shape`, `stack`, `culture`, `duplicate`, `gated`, `other`). Pass the `run_id` when you have one.
+6. **Record.** If the role passes: `transition` to `verified` with `evidence`, `location_line`, `location_type`, and update the role with any comp, stack, industry and ATS details via `upsert_role` (with `id`). Otherwise `transition` to `dropped` with the quote and a `category` (`location`, `pay`, `industry`, `role_shape`, `stack`, `culture`, `duplicate`, `gated`, `language`, `employment_type`, `other`). Pass the `run_id` when you have one.
 
 ## Tells and what they mean
 
@@ -51,6 +52,9 @@ Load the employer's own posting, quote it, and decide. This step is the only way
 - Bands in INR or PHP.
 - Mission copy about "connecting talent with global teams" or "breaking down geographic barriers": the company places engineers rather than employing them for its own product.
 These JDs are often excellent on the work. The geography still decides. Drop with the location quote.
+
+**Staffing and Zeitarbeit (Germany)**
+- "Personaldienstleister", "Zeitarbeit", "Arbeitnehmerüberlassung", "für unseren Kunden", or an unnamed client: the hire would be employed by the agency. Flag it with the quote; drop only if the user's rules exclude agency work.
 
 **Funnel reqs**
 - Four-figure open-position count at a small company, the same title repeated per country, or several company pages posting identical titles the same week: the req is probably not a real seat. Drop with the count as evidence, or flag if the rest is strong.

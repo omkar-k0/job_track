@@ -60,7 +60,8 @@ export async function preTool(payload: HookPayload): Promise<void> {
   if (C.isTracker(server)) {
     if (!session.marked) {
       session.marked = true;
-      saveSession(payload.session_id, session);
+      // A failed save must not throw past the read-back check below: main.ts lets a crashed tracker call through.
+      trySaveSession(payload, session);
     }
     if (short === 'verify_artifact') return checkReadback(payload, session, input);
     return;

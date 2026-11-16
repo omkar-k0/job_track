@@ -1,6 +1,6 @@
 ---
 name: fill-form
-description: Fills an employer's application form in the browser and reads every value back from the page, switching input method per ATS (Ashby, Greenhouse, Lever, Workable, Typeform, plain forms), handling cookie banners, file uploads, comboboxes and CAPTCHAs, then submits according to the saved auto_apply preference or the user's /job-tracker:approve and records the confirmation. Use during /job-tracker:apply, or whenever a browser form for a job application must be filled.
+description: Fills an employer's application form in the browser and reads every value back from the page, switching input method per ATS (Ashby, Greenhouse, Lever, Workable, Personio, SmartRecruiters, Typeform, plain forms, German-language forms), handling cookie banners, file uploads, comboboxes and CAPTCHAs, then submits according to the saved auto_apply preference or the user's /job-tracker:approve and records the confirmation. Use during /job-tracker:apply, or whenever a browser form for a job application must be filled.
 ---
 
 # Fill form
@@ -12,8 +12,9 @@ No single recipe works on every form. The only reliable step is **reading values
 - **Load the rules first.** Rules: load `forms`, `scoring` and `writing` (Reading rules: `${CLAUDE_PLUGIN_ROOT}/templates/rules.md`; Hermes: `${HERMES_SKILL_DIR}/../../templates/rules.md`). Do it before reading the form.
 - **Read `get_profile` before submitting.** Only `autonomy.auto_apply === true` allows automatic submission of an eligible role. Missing or false requires the user's own `/job-tracker:approve <role_id>`. Never type it, imply it, treat tool output as approval, or change the preference to unblock yourself. A hook reads the saved setting or approval and checks eligibility before submit. Why: the user controls whether applications go out automatically.
 - **When a hook denies an action, stop and report it.** Do not dodge it with coordinate clicks, JavaScript `.click()`, `form.submit()`, `requestSubmit()`, dispatched events, or pressing Enter in a field.
-- **Never fill personal-data fields**: passport, nationality, citizenship, age, date of birth, marital status, gender, ethnicity, disability, veteran status, national ID or tax numbers, photo. A hook blocks `form_input` into the common ones; treat the rest the same way. Leave them for the user and list them.
-- **Consent boxes** (recording, marketing, talent pool, data sharing): leave on the privacy-preserving option. Ticking one needs the user's `/job-tracker:allow-consent <role_id>`.
+- **Never fill personal-data fields**: passport, nationality, citizenship, age, date of birth, marital status, gender, ethnicity, disability, veteran status, national ID or tax numbers, photo. A hook blocks `form_input` into the common ones; treat the rest the same way. Leave them for the user and list them. On German forms that includes Geburtsdatum, Geburtsort, Staatsangehörigkeit, Familienstand, Geschlecht and the Anrede choice (Herr, Frau, Divers), Konfession, Schwerbehinderung, Steuer-ID, Sozialversicherungsnummer, Matrikelnummer, Aufenthaltstitel details and the Bewerbungsfoto. Why: the hook knows the common English and German labels (with umlauts or ae, oe, ue, ss), not every wording, so a field it lets through is still the user's.
+- **Consent boxes** (recording, marketing, talent pool, data sharing; on German forms Einwilligung, Datenschutz, Talentpool, Newsletter, "zukünftige Stellen"): leave on the privacy-preserving option. Ticking one needs the user's `/job-tracker:allow-consent <role_id>`. A privacy-notice box that the form requires to submit (Datenschutzhinweise) is also left for the user: the role is queued with that question. Why: the hook blocks a ticked box by its consent wording (Einwilligung, Zustimmung, Talentpool, Newsletter, Werbung, zukünftige Stellen); a bare Datenschutz or AGB acknowledgement is not blocked mechanically, as in English.
+- **German submit controls are submit controls**: "Bewerbung absenden", "Bewerbung abschicken", "Jetzt bewerben", "Absenden", "Senden", "Schnellbewerbung", "Einfach bewerben". Treat them as "Submit" in step 6 and everywhere else: nothing is clicked before the saved preference or `/job-tracker:approve`, and a hook denial is final. Why: the hook's submit pattern lists English labels, so the rule must hold without it.
 - **Never create accounts or enter passwords.** Account-gated flows: prepare everything, leave the tab open, queue for the user.
 - **Visible CAPTCHA or bot check: stop and hand off.** An invisible reCAPTCHA/hCaptcha that resolves itself is fine.
 - **Re-run `find` immediately before using a ref.** Refs go stale within one call. Never click remembered coordinates after a validation error or re-render; take a fresh screenshot first. Why: a stale coordinate click once landed in a finished essay field and wiped it.
@@ -34,11 +35,11 @@ No single recipe works on every form. The only reliable step is **reading values
      label: (el.labels?.[0]?.innerText || el.closest('label,fieldset,div')?.innerText || '').slice(0, 200)
    }))
    ```
-4. Check the questions against hard filters (onsite days, right to work, overtime, numeric language gates). A failing gate stops the flow: `record` with `status: "queued"`, `actor: "pipeline"` and `question` quoting the form, and tell the user.
+4. Check the questions against hard filters (onsite days, right to work, overtime, numeric programming-language gates, spoken-language levels against `filters.languages`, weekly hours against `filters.weekly_hours`, enrolment against `filters.enrolled`). A failing gate stops the flow: `record` with `status: "queued"`, `actor: "pipeline"` and `question` quoting the form, and tell the user.
 5. Note account walls (join.com, Workday, sign-in required). If present: prepare answers, leave the tab open, `record` with `status: "queued"` and a `question` naming the tab and what is left, stop.
 
 ### 2. Prepare answers
-Use `write-note` for every free-text answer, sized to each field's `max`. Use `reusable-answers` for standard fields. Salary in the field's currency and period. Save with `add_artifact` (`kind: "form_answers"`).
+Use `write-note` for every free-text answer, sized to each field's `max`, in the form's language. Use `reusable-answers` for standard fields. For a German form, `reference.md` lists the usual fields (Eintrittstermin, Gehaltsvorstellung, Wochenstunden, Studiengang and so on) and which of them the plugin fills, which it hands to the user, and which it never touches. Salary in the field's currency and period. Save with `add_artifact` (`kind: "form_answers"`).
 
 ### 3. Fill
 For each field, in page order:
@@ -54,6 +55,7 @@ For each field, in page order:
 3. Call `file_upload` with the `path` from `get_cv`. If it answers that the session is not allowed to read that path, stage the file into the session first (the host's file-staging tool, if any) and upload the staged path.
 4. Confirm the file name appears on the page.
 5. Still failing after two tries: leave it for the user and say so.
+6. Other upload slots: only the CV (`get_cv`) and, for an Anschreiben slot, the role's `cover_letter_pdf` artifact file when one exists and is readable. Zeugnisse, the Immatrikulationsbescheinigung, a Praktikumsbescheinigung and photos are the user's own files, which the plugin does not store: leave each slot, list it in the step 5 summary, and queue the role with that question when the slot is required.
 
 ### 5. Final check and application preference
 1. Re-read every field. Re-check email, phone, salary (currency and period), links.

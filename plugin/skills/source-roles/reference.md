@@ -11,15 +11,19 @@ Build queries from `prefs.titles`, `prefs.stack_want` and `filters.work_mode`. K
 - External apply links are often wrapped. Resolve them with `new URL(href).searchParams.get('url')` when reading in a browser, and prefer the employer ATS URL for `url`.
 - A search error (e.g. HTTP response failure) while the inbox call works means the search endpoint is failing, not that the user is logged out. Report it as a connector error.
 - Read-only: never message, connect, follow or Easy Apply from a sweep.
+- **Germany and EU.** Set the location to the country or a city (not "Worldwide"), and run German and English title terms (see `SKILL.md`). Use the page or connector filters for job type (internship, part-time), experience level (internship, entry level) and posting age; do not hand-build filter codes in URLs. Postings carry "(m/w/d)" suffixes and often a German body under an English title: read the posting language yourself. Expect staffing-agency and Zeitarbeit reposts. "Easy Apply" is LinkedIn-hosted, so the employer's page must come from `verify-employer`.
 
 ## Employer ATS boards (fetch)
 
-Public posting APIs, no login. Use them to list a known employer's openings and as the verification source. The boards to sweep are the URLs in `sources.boards`; read the board token or company slug from each URL.
+Public posting APIs, no login. Use them to list a known employer's openings and as the verification source. The boards to sweep are the URLs in `sources.boards`; read the board token or company slug from each URL. Endpoints marked "checked 2026-11-16" returned the stated fields when fetched that day; the rest are carried over from earlier runs.
 
-- **Ashby**: `GET https://api.ashbyhq.com/posting-api/job-board/<board>?includeCompensation=true`. Each job has `title`, `location`, `secondaryLocations`, `workplaceType` / `isRemote`, `jobUrl`, `applyUrl`, and compensation when published. The HTML board also shows "Open Positions (N)".
-- **Greenhouse**: `GET https://boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true`. Single job with screening questions: `.../jobs/<id>?questions=true`. A board that answers "no longer active" is dead; aggregators may keep circulating its listings.
-- **Lever**: `GET https://api.lever.co/v0/postings/<company>?mode=json` (EU-hosted boards: `api.eu.lever.co`). Fields: `categories.location`, `workplaceType`, `salaryRange`, `hostedUrl`.
-- **Workable, Teamtailor, Personio, join.com**: no stable public API assumed. Fetch the posting HTML and read the location and workplace lines.
+- **Ashby**: `GET https://api.ashbyhq.com/posting-api/job-board/<board>?includeCompensation=true`. Each job has `title`, `location`, `secondaryLocations`, `workplaceType` / `isRemote`, `employmentType`, `jobUrl`, `applyUrl`, and compensation when published. The HTML board also shows "Open Positions (N)".
+- **Greenhouse**: `GET https://boards-api.greenhouse.io/v1/boards/<token>/jobs?content=true`. Jobs carry `language` and `application_deadline` (checked 2026-11-16). Single job with screening questions: `.../jobs/<id>?questions=true`. A board that answers "no longer active" is dead; aggregators may keep circulating its listings.
+- **Lever**: `GET https://api.lever.co/v0/postings/<company>?mode=json` (EU-hosted boards: `api.eu.lever.co`). Fields: `categories.location`, `categories.commitment` (full-time, intern and similar, free text per employer), `workplaceType`, `salaryRange`, `hostedUrl`.
+- **Personio** (very common for German Mittelstand and startups): `GET https://<company>.jobs.personio.de/xml` returns an XML feed (checked 2026-11-16, HTTP 200, `text/xml`). Root `<workzag-jobs>`, one `<position>` per opening with `id`, `office`, `additionalOffices`, `department`, `name`, `employmentType` (seen: `permanent`, `intern`), `seniority` (seen: `entry-level`, `experienced`, `student`), `schedule` (seen: `full-time`, `part-time`, `full-or-part-time`), `occupation`, `createdAt` and `jobDescriptions` (each with a `name` and an HTML `value` in CDATA). The posting page is `https://<company>.jobs.personio.de/job/<id>`: it is the employer page for `verify-employer`, and its text is the authority when it disagrees with the feed. An unknown slug answers 404. The same slug on `jobs.personio.com` and the feed's `language` handling were not checked.
+- **SmartRecruiters**: `GET https://api.smartrecruiters.com/v1/companies/<companyIdentifier>/postings?limit=100` (checked 2026-11-16). Optional `q=<text>` and `country=<iso2 lowercase>` narrow it (e.g. `q=Werkstudent&country=de`); page with `offset`. List items carry `name`, `location` (`city`, `country`, `remote`, `hybrid`), `typeOfEmployment.id` (seen: `permanent`, `part-time`), `experienceLevel.id` and `releasedDate`. `GET .../postings/<id>` adds `postingUrl`, `applyUrl`, `language` and `jobAd` (the description). The identifier is the path segment after `jobs.smartrecruiters.com/` and is case-sensitive: a wrong one returns HTTP 200 with `totalFound: 0`, which is not proof the employer has no openings.
+- **Workday**: the career site URL is `https://<tenant>.wd<N>.myworkdayjobs.com/<site>` (the `wd<N>` host and the site name differ per employer: copy them from the URL the user gave). List with `POST https://<tenant>.wd<N>.myworkdayjobs.com/wday/cxs/<tenant>/<site>/jobs`, JSON body `{"appliedFacets":{},"limit":20,"offset":0,"searchText":"<term>"}` (checked 2026-11-16: `total`, `jobPostings[]` with `title`, `locationsText`, `postedOn`, `externalPath`). One posting: `GET https://<tenant>.wd<N>.myworkdayjobs.com/wday/cxs/<tenant>/<site><externalPath>` returns `jobPostingInfo` with `jobDescription`, `location`, `timeType`, `startDate` and `externalUrl` (the employer page). A wrong site name returns HTTP 422. Applying needs a Workday account: never create one (account-gated flow).
+- **Workable, Teamtailor, Recruitee, join.com, and any other host** (including a university or Career Service portal in `sources.boards`): no public API checked. Fetch the posting HTML and read the location, type and hours lines.
 
 Funnel tell: a board with a four-figure open-position count at a company of a few hundred people, or the same title repeated once per country, means the req is probably not a real seat. Note the count in the lead.
 
@@ -60,11 +64,72 @@ Start URL: `https://www.workatastartup.com/jobs`. Logged out it shows a small su
 - The description starts with the company's headquarters and website; use the website as `company_domain`. `<region>` and `<country>` are tags, so they go in `raw_location`.
 - The `link` is the WWR posting. Its apply button usually leads to the employer's ATS; `verify-employer` follows it.
 
+## German and EU boards
+
+Read-only lead sources, like the US boards. Build the term list as in `SKILL.md` (German and English, no gender suffix), set the city or region from `filters.hybrid.cities` or `filters.residence_country`, and limit to postings since `last_run`. Open a posting only to find the employer link and the type, hours and language lines; never click a board's own apply control ("Schnelle Bewerbung", "Schnellbewerbung", "Jetzt bewerben" on a board-hosted form, "Bewerbung absenden"). Stop on a visible bot check or security question (see the hard rules in `SKILL.md`).
+
+Checks marked 2026-11-16 are plain fetches made that day from one network. A site that answered differently for you, or a layout that changed, is a failure to record with `set_source_status`, not a reason to guess.
+
+Shared pointers for the employer's own posting: the board posting usually names the company and often links its careers page or an ATS (Personio, SmartRecruiters, Workday, Greenhouse, Lever and similar). Follow that link. If there is none, search for the company's careers page by name and match the title and location. If the only apply path is board-hosted, record "no employer page found" in the lead's reason and let `verify-employer` decide; do not treat the board text as employer text.
+
+### Bundesagentur für Arbeit Jobsuche (`arbeitsagentur`)
+
+- Search: `https://www.arbeitsagentur.de/jobsuche/suche?was=<term>&wo=<city>` (checked 2026-11-16: HTTP 200, results server-rendered, title like "Jobs für Werkstudent in Berlin | Jobsuche der BA"). The page has a radius dropdown (Umkreis), a Befristung filter, a sort by "Neueste Veröffentlichung", and "Andere suchten auch" suggestions. Use the page's own filters for type, hours and age.
+- Detail pages: `https://www.arbeitsagentur.de/jobsuche/jobdetail/<refnr>` (checked: fetchable, no login). The summary block lists "Besondere Merkmale" (e.g. "Praktikum/Trainee/Werkstudent"), "Anstellungsart" (Vollzeit, Teilzeit), "Befristung", "Beginn" and the work locations, followed by the employer's own text. Those fields are the board's classification (`raw_type`); the posting text and the employer's page decide.
+- Employer page: the text often ends with the employer's careers link or apply instructions; otherwise search the employer by name. Contact details are hidden behind a security question ("Sicherheitsfrage"): never solve it, and do not report it as a failure if the text already has the link.
+- Known failure modes: postings re-listed from other boards (collapse by employer and title before dedupe); jobs marked "Praktikum/Trainee/Werkstudent" that are neither; long-lived listings with an old "Beginn".
+- JSON API: a public API for this search is reported by third parties, but it is **unverified** (a request to the documented host answered HTTP 403 from the check environment). Do not build on it, do not guess its URL or key, and use the pages above.
+
+### StepStone (`stepstone`)
+
+- Search: `https://www.stepstone.de/jobs/<term-slug>/in-<city-slug>`, e.g. `/jobs/werkstudent-data-science/in-berlin` (checked 2026-11-16: HTTP 200, results in the HTML, title with the result count and date). The page's filters include Anstellungsart, Arbeitszeit, Home-Office-Optionen, Berufserfahrung and Sprache; use them instead of building filter URLs.
+- Postings live at `https://www.stepstone.de/stellenangebote--<slug>--<id>-inline.html`. Many apply through StepStone's own form ("Schnelle Bewerbung"): never use it; the employer's own posting is found in `verify-employer`, and if there is none the lead says so.
+- Known failure modes: bot checks after a few pages (stop, never solve); sponsored cards repeated across keywords; salary shown as a StepStone estimate (`raw_comp` at most).
+
+### Indeed Germany (`indeed_de`)
+
+- Search URL: `https://de.indeed.com/jobs?q=<term>&l=<city>&fromage=<days>&sort=date` (`fromage` takes 1, 3, 7 or 14). A plain fetch returned HTTP 403 on 2026-11-16, so use the browser; the rest as in the `Indeed (US)` section below. The page's own quick-apply controls are board-hosted: never click them. The German button labels were not checked.
+
+### XING Jobs (`xing`)
+
+- Search: `https://www.xing.com/jobs/search?keywords=<term>` (checked 2026-11-16: redirects to `/jobs/search/ki?keywords=...`, HTTP 200, results in the HTML without login). The page has filters for Standort, Arbeitsplatz, Beschäftigungsart, Karriere-Stufe (with a "Student·in / Praktikant·in" level) and Gehalt. Cards show the employer, city, labels such as "Für Studenten" and "Einfach bewerben", and sometimes a pay figure (`raw_comp`). Postings live at `https://www.xing.com/jobs/<city>-<slug>-<id>`. Applying and the full posting may need a XING login: use the browser only if the user is already signed in.
+- "Einfach bewerben" is XING's own apply flow: never use it. Find the employer's page from the posting text or by the company name.
+- Known failure modes: pay shown can be an estimate; the same posting appears under the company and under a recruiting agency; "Für Studenten" is a board label, not proof of a Werkstudent contract.
+
+### Stellenwerk (`stellenwerk`)
+
+- Start URL: `https://www.stellenwerk.de/`. Pick the city on the page ("Stadt auswählen"), then read the list (checked 2026-11-16: HTTP 200, cards render in the HTML with the employer, region, a type label such as "Studierendenjob" or "Absolvent:innenjob", "Homeoffice möglich" and sometimes an hourly pay like "18 € / Stunde"). The site is run with universities ("das gemeinsame Jobportal der Hochschulen"); a student account is needed to apply and to see more: never create or use one for the user.
+- Employer page: the posting names the employer; follow its link or search the careers page. Cards from private persons (not companies) are not employer postings for this plugin: skip them.
+- University or Career Service portals that are not on Stellenwerk go into `sources.boards` (the user supplies the URL); they are read as plain careers pages (see ATS boards).
+
+### Absolventa (`absolventa`)
+
+- Start URL: `https://www.absolventa.de/jobs`. A plain fetch returned HTTP 405 on 2026-11-16, so use the browser. The page structure, filters and apply flow are **unverified**: read the page, use its own filters, and record what you could not read. Postings usually link to the employer's own page; verify there.
+
+### JobTeaser (`jobteaser`)
+
+- Start URL: `https://www.jobteaser.com/en/job-offers` (a plain fetch returned HTTP 403 on 2026-11-16). It works through the user's university career-service login; which offers appear depends on the university. Run it only if the user is already signed in. If a university login page appears, report "Log in to JobTeaser in the browser" and stop; never enter credentials.
+- Offers link to the employer's ATS or to a JobTeaser-hosted form (never use it). Page structure is **unverified**.
+
+### EURES (`eures`)
+
+- Start URL: `https://eures.europa.eu/index_en` (checked 2026-11-16: reachable); the job vacancy search is part of that portal. The search flow was not exercised, so its filters are **unverified**. Vacancies largely mirror national employment services, so for Germany prefer `arbeitsagentur` and use EURES for other EU countries (set the country filter).
+- Postings link back to the national service or the employer; verify on the employer's page.
+
+### WeAreDevelopers (`wearedevelopers`)
+
+- Start URL: `https://www.wearedevelopers.com/en/jobs` (checked 2026-11-16: it redirected to `/jobs?country=US` from the check network, so set the country filter to the user's market before reading). Tech roles; use the page's filters for seniority and contract type, which are **unverified** beyond that. Postings link to the employer's ATS; follow it.
+
+### Berlin Startup Jobs (`berlinstartupjobs`)
+
+- RSS: `https://berlinstartupjobs.com/feed/` (checked 2026-11-16: HTTP 200, `application/rss+xml`). Each `<item>` has `<title>` as `Role // Company`, `<link>` (the board's posting), `<category>` and `<pubDate>`; the description is a short teaser. Keep items with `pubDate` after `last_run`. The `link` leads to the board's posting, whose apply link goes to the employer: follow it for `verify-employer`.
+- Berlin only. Type, hours and language are not in the feed: they come from the employer page.
+
 ## US job boards
 
 All of these are read-only lead sources. Build 2 to 4 title queries from `prefs.titles`, set the remote or location filter from `filters.work_mode`, and limit to postings since `last_run`. Open the posting only to find the employer link; never click the board's own apply button. Stop on a visible bot check (see the hard rules in `SKILL.md`).
 
-### Indeed
+### Indeed (US)
 
 - Search URL: `https://www.indeed.com/jobs?q=<title>&l=Remote&fromage=<days>&sort=date`. `fromage` takes 1, 3, 7 or 14: use the smallest that covers `last_run`. For hybrid or onsite, put the user's city in `l`.
 - Plain fetch is blocked (HTTP 403); use the browser.

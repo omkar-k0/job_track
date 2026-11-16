@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#f6eee0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#20251f" media="(prefers-color-scheme: dark)">
+<meta name="color-scheme" content="light dark">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" href="data:,">
 <title>Job Tracker board</title>
@@ -12,11 +13,52 @@
 <script type="module" src="/board.js"></script>
 </head>
 <body>
+<a class="skip" href="#content">Skip to the roles</a>
 <header>
-<h1><span class="brand-mark" aria-hidden="true">j<span>t</span></span>Job Tracker<span class="brand-tag">MCP</span></h1>
-<p id="pipeline"></p>
-<p id="status" role="status" aria-live="polite"></p>
+  <div class="top">
+    <h1><span class="brand-mark" aria-hidden="true">j<span>t</span></span>Job Tracker<span class="brand-tag">MCP</span></h1>
+    <p id="status" role="status" aria-live="polite"></p>
+    <button type="button" id="theme" class="icon-btn" aria-pressed="false" title="Dark mode"><span class="sr">Dark mode</span></button>
+  </div>
+  <section id="stats" aria-label="Search summary"></section>
 </header>
-<main id="board" aria-label="Roles by status"></main>
+<search aria-label="Find and filter roles">
+<form id="toolbar" autocomplete="off">
+  <div class="search">
+    <label class="sr" for="f-q">Search roles</label>
+    <input id="f-q" type="search" placeholder="Search company, title, stack…" spellcheck="false" aria-keyshortcuts="/">
+    <kbd aria-hidden="true">/</kbd>
+  </div>
+  <button type="button" id="filters-toggle" class="filters-toggle" aria-expanded="false" aria-controls="filters">Filters</button>
+  <div class="filters" id="filters">
+    <label><span class="sr">Status</span><select id="f-status"></select></label>
+    <label><span class="sr">Source</span><select id="f-source"></select></label>
+    <label><span class="sr">Work mode</span><select id="f-mode"></select></label>
+    <fieldset class="score">
+      <legend class="sr">Score range</legend>
+      <input id="f-smin" type="number" inputmode="decimal" step="any" placeholder="Min score" aria-label="Minimum score">
+      <span aria-hidden="true">–</span>
+      <input id="f-smax" type="number" inputmode="decimal" step="any" placeholder="Max score" aria-label="Maximum score">
+    </fieldset>
+    <label class="check"><input id="f-need" type="checkbox"><span>Needs my action</span></label>
+    <button type="button" id="clear" class="quiet" hidden>Clear filters</button>
+  </div>
+  <div class="view-controls">
+    <span id="count" aria-live="polite"></span>
+    <fieldset class="seg">
+      <legend class="sr">View</legend>
+      <button type="button" data-view="board" aria-pressed="true">Board</button>
+      <button type="button" data-view="table" aria-pressed="false">Table</button>
+    </fieldset>
+  </div>
+</form>
+</search>
+<main id="content" tabindex="-1">
+  <section id="board" aria-label="Roles by status"></section>
+  <div id="table-wrap" hidden></div>
+  <div id="empty" hidden></div>
+</main>
+<div id="scrim" hidden></div>
+<aside id="drawer" hidden role="dialog" aria-modal="false" aria-labelledby="drawer-title" tabindex="-1"></aside>
 </body>
 </html>

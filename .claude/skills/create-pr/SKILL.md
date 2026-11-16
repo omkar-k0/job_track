@@ -7,7 +7,7 @@ description: Create a GitHub PR from current changes using gh CLI. Use this when
 
 **Goal: the PR's GitHub checks are a formality.** Before opening the PR, run the same checks CI will run, locally, and fix what fails. Never open a PR you expect to go red.
 
-`main` requires five checks from `.github/workflows/ci.yml`: `lint` and `test` on Ubuntu and macOS with Node 22.18 and 24.x. That workflow is the source of truth; if it changes, update this skill in the same PR.
+CI (`.github/workflows/ci.yml`) runs `lint`, plus `test` on Ubuntu and macOS with Node 22.18 and 24.x. That workflow is the source of truth; if it changes, update this skill in the same PR.
 
 ## Step 1 — Run the preflight
 
@@ -44,7 +44,7 @@ Look at `git diff --stat origin/main...` (plus uncommitted work) and run whateve
 
 Using GitHub CLI only.
 
-1. Run `git config user.email`. It must be a GitHub noreply address (`1017097+adamwardecki@users.noreply.github.com` for the maintainer). If not, stop and ask. Never pass `--author`, `-c user.email` or `GIT_AUTHOR_EMAIL`.
+1. Run `git config user.email`. It must be a GitHub noreply address (`<id>+<username>@users.noreply.github.com`). If not, stop and ask. Never pass `--author`, `-c user.email` or `GIT_AUTHOR_EMAIL`.
 2. If the current branch is `main`, create a new branch first; otherwise commit to the current branch.
 3. Commit subjects are plain imperative sentences in sentence case, no conventional-commit prefix (`Show the plugin as "Job Hunt" in listings`). Match `git log --oneline`.
 4. Push, then:

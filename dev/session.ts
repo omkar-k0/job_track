@@ -19,8 +19,8 @@ import { fileURLToPath } from 'node:url';
 import { secureDir, secureFile } from '../plugin/servers/tracker/src/fsperm.ts';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-const PLUGIN_ID = 'job-tracker@job-tracker-mcp';
-const MARKETPLACE = 'job-tracker-mcp';
+const PLUGIN_ID = 'job-tracker@job_track';
+const MARKETPLACE = 'job_track';
 const PROD_HOME = join(homedir(), '.job-tracker');
 const DEV_HOME = join(homedir(), '.job-tracker-dev');
 const PROD_DB = join(PROD_HOME, 'tracker.db');
@@ -66,8 +66,7 @@ async function dev(passthrough: string[]): Promise<void> {
   claudeCli(['plugin', 'marketplace', 'update', MARKETPLACE]);
   // Without the override both copies load as job-tracker and every hook runs twice, against different folders.
   const settings = JSON.stringify({ enabledPlugins: { [PLUGIN_ID]: false } });
-  // The copy carries the real database's usage-analytics opt-in; dev sessions stay out of the production project.
-  startClaude(['--plugin-dir', join(REPO, 'plugin'), '--settings', settings, ...passthrough], { ...cleanEnv(), JOB_TRACKER_HOME: DEV_HOME, JOB_TRACKER_ANALYTICS: 'off' });
+  startClaude(['--plugin-dir', join(REPO, 'plugin'), '--settings', settings, ...passthrough], { ...cleanEnv(), JOB_TRACKER_HOME: DEV_HOME });
 }
 
 async function prod(passthrough: string[]): Promise<void> {

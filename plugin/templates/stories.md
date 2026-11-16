@@ -3,6 +3,8 @@
 <!--
 Your interview and application stories, in your own words. Saved with save_document(name: "stories").
 The plugin only uses what is written here (and in profile.md). It never invents a story.
+Early-career: stories may come from projects, a thesis, coursework, a hackathon, a student initiative or a short
+Werkstudent job. Say "I" for your own part, say what you decided and how you know it worked. Never inflate a course project.
 Aim for 6 to 12 stories that between them cover: a hard technical or professional problem, something you owned end
 to end, a failure or incident, a disagreement, working with people outside your field, a time you changed how a
 team worked, and why you are looking now.
@@ -19,7 +21,7 @@ team worked, and why you are looking now.
 ## 1. <Short title>
 
 - **Themes:** <comma-separated, used to match interview questions>
-- **Role and company:** <title, company, year>
+- **Role and company:** <title, company, year; or "course project, <University>", "thesis", "hackathon">
 - **Situation:** <one or two lines of context: the product, the team, what was at stake>
 - **Task:** <what you were responsible for>
 - **Action:** <what YOU did, step by step. Use "I", not "we", for your part.>

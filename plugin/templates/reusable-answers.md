@@ -13,14 +13,14 @@ Keep each answer true and specific. Run your own longer answers past the writing
 The plugin leaves these for you, every time, even if you write an answer here. A hook blocks
 the common ones.
 
-- Passport details, nationality, citizenship
-- Age, date of birth
-- Marital status, gender, pronouns
-- Ethnicity, race, disability, veteran status, religion, sexual orientation (equal-opportunity surveys)
-- National ID, tax, social security or similar numbers
-- Photos
+- Passport details, nationality, citizenship (Staatsangehörigkeit)
+- Age, date of birth (Geburtsdatum, Geburtsort)
+- Marital status, gender, pronouns, the Herr/Frau/Divers choice (Familienstand, Geschlecht, Anrede)
+- Ethnicity, race, disability, veteran status, religion, sexual orientation (equal-opportunity surveys; Konfession, Schwerbehinderung)
+- National ID, tax, social security or similar numbers (Steuer-ID, Sozialversicherungsnummer, Matrikelnummer)
+- Photos (Bewerbungsfoto)
 - Passwords, account creation, CAPTCHAs
-- Consent checkboxes (recording, marketing, talent pool, data sharing), unless you type
+- Consent checkboxes (recording, marketing, talent pool, data sharing; Einwilligung, Datenschutz, Talentpool, Newsletter), unless you type
   `/job-tracker:allow-consent <role_id>` for that role
 
 ## Standard fields
@@ -34,6 +34,10 @@ the common ones.
 - **Requires sponsorship:** <Yes / No>
 - **Willing to relocate:** <Yes / No / Depends>
 - **Notice period / start date:** <...>
+- **Earliest start (Eintrittstermin):** <e.g. "ab sofort", "1 October", "after my exams on <date>">
+- **Hours per week (Wochenstunden):** <e.g. "up to 20 in lecture periods, up to 40 in semester breaks">
+- **Study programme (Studiengang, Hochschule, Semester):** <e.g. "B.Sc. <programme>, <University>, <N>th semester, enrolled">
+- **Language levels (Deutsch, Englisch):** <e.g. "German B2, English C1">; the plugin never rates you higher than you write here
 - **How did you hear about us:** the true source for each role (the plugin fills it per role)
 
 ## Salary
@@ -43,6 +47,7 @@ the common ones.
 - **Answer when the role offers equity (text field):** <e.g. "Negotiable depending on the equity package">
 - **Number-only field with equity on offer:** the plugin asks you for the figure.
 - **Other currency or period:** the plugin converts your band at the day's rate and writes it in the field's currency and period.
+- **Hourly or monthly (Werkstudent, internship; Gehaltsvorstellung):** <e.g. "<amount> EUR gross per hour">. The plugin converts to a monthly figure only with the weekly hours the posting states; with none stated it asks you.
 
 ## Short answers (one or two sentences, fits 255 characters)
 

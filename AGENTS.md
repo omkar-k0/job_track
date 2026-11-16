@@ -19,7 +19,6 @@ node --no-warnings --test tests/tracker/tracker.test.ts   # one file
 npm run lint           # biome check (lint + import order); CI runs `biome ci`
 npm run lint:fix       # apply safe fixes
 npm run tracker -- --db /tmp/t.db   # run the MCP server on stdio against a scratch DB
-npm run dev:site       # serve site at http://127.0.0.1:8000 (the debug panel is an ES module, so file:// does not work)
 npm run dev            # Claude Code with this worktree's plugin/ on a fresh copy of the real DB (~/.job-tracker-dev)
 npm run prod           # back up the real DB, update the released plugin, start Claude Code on it
 ```
@@ -49,10 +48,11 @@ them on Ubuntu and macOS with Node 22.18 and 24.
 | `.claude-plugin/marketplace.json` | the marketplace; its plugin `source` is `./plugin` |
 | `tests/` | repo-level tests (hooks, Hermes, installers, docs); `tests/tracker/` for the server |
 | `docs/tracker-api.md` | public reference for the tracker tools |
-| `site/` | static landing page, deployed as is by `pages.yml`; no build step; not linted |
+| `docs/usage.md` | setup and usage guide (install, setup walkthrough, commands, data); `tests/docs-sync.test.ts` keeps it in step with the plugin |
 | `dev/` | dev tools only (`package.json`, lockfile, `node_modules`, and `session.ts` behind `npm run dev` / `npm run prod`); never shipped as runtime dependencies |
-| `.github/factory.json`, `.github/workflows/factory-*.yml` | the agent factory's config and its two caller workflows; the factory itself is [agent-factory](https://github.com/adamwardecki/agent-factory) ([docs/factory.md](docs/factory.md)); not shipped |
-| `.claude/settings.json` | the pinned `mattpocock-skills` plugin, for local sessions |
+| `.github/workflows/ci.yml` | CI: lint, and tests on Ubuntu and macOS with Node 22.18 and 24 |
+| `.claude/` | project instructions for Claude Code sessions (`CLAUDE.md`) and the `create-pr` skill |
+| `PRIVACY.md` | privacy policy: no telemetry, all data local in `~/.job-tracker` |
 
 ## TypeScript rules (Node type stripping, no build)
 
@@ -85,6 +85,8 @@ In practice:
   `rule:<id>`. Do not add a shortcut that writes status directly.
 - **Schema changes:** append a function to `MIGRATIONS` in `db.ts`. Never edit a shipped migration. Add a
   test in `db.test.ts` that migrates an older database.
+- The plugin sends no telemetry. Do not add analytics, crash reporting or any network call that sends user data
+  anywhere. The tracker's only network use is the board, which listens on `127.0.0.1`.
 - The DB holds personal data. Keep file modes owner-only (`fsperm.ts`) and never log row contents.
 
 ## Hooks and safety gates
@@ -124,7 +126,7 @@ The hooks enforce the promises in [README: What it won't do](README.md#what-it-w
 - **Commit identity:** the author email must be a GitHub noreply address
   (`<id>+<username>@users.noreply.github.com`). Before your first commit, run `git config user.email`. If
   it is not a noreply address, stop and ask. Do not pass `--author`, `-c user.email` or `GIT_AUTHOR_EMAIL`
-  to change it. For the maintainer the address is `1017097+adamwardecki@users.noreply.github.com`.
+  to change it.
 - `npm test` and `npm run lint` pass before every commit.
 - Bumping the version: `package.json`, `plugin/package.json`, `plugin/plugin.yaml` and
   `plugin/.claude-plugin/plugin.json` change together (a test checks), and `SERVER_INFO.version` in `mcp.ts`
@@ -135,8 +137,7 @@ The hooks enforce the promises in [README: What it won't do](README.md#what-it-w
 - **Always:** run `npm test` and `npm run lint`; update the tools-list fixture and `docs/tracker-api.md`
   with any tool schema change; keep Hermes parity.
 - **Ask first:** adding any dependency; changing a tool's name or removing a field; changing a hook
-  matcher in `hooks/hooks.json`; renaming CI jobs or changing the test matrix (the job names are required
-  checks on `main`); anything touching send, submit, consent or delete gates.
+  matcher in `hooks/hooks.json`; renaming CI jobs or changing the test matrix; anything touching send, submit, consent or delete gates.
 - **Never:** write to stdout from the server or hooks outside the protocol; edit a shipped migration;
   commit personal data, `.db` files or secrets; commit with a non-noreply email; run `npm install` or
   `npm ci` in the root or `plugin/`, or commit a lockfile there; put tests or dev files in `plugin/`.

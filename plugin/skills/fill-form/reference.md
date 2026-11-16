@@ -37,6 +37,34 @@ Observed behaviour per ATS and widget. Treat each recipe as one option among sev
 - Screening questions are often single-line inputs with small `maxlength` (e.g. 127 or 255). Write to the limit.
 - Read every required question before writing anything.
 
+## Personio, SmartRecruiters and other German-market ATS forms
+
+- Personio career pages (`<company>.jobs.personio.de`), SmartRecruiters (`jobs.smartrecruiters.com/<company>`) and the German HR platforms (softgarden, rexx, d.vinci, Kenjo and similar) were not observed field by field. Use the general method: survey the form, set, read back, switch method.
+- Many German forms ask for the documents as separate uploads (Lebenslauf, Anschreiben, Zeugnisse) and end with a privacy-notice box that is required to submit. That box is a consent: leave it and queue the role with the question.
+- Date fields usually want `TT.MM.JJJJ`, decimals take a comma ("18,50"), thousands a dot ("45.000"): read the value back as the page shows it, and check the unit and period next to the field (brutto, netto, pro Stunde, pro Monat, pro Jahr).
+- Cookie banners: "Alle ablehnen", "Nur notwendige" or "Ablehnen" are the decline buttons.
+
+## German form fields: fill, hand over, or never
+
+| Field label (typical) | Action |
+|---|---|
+| Vorname, Nachname, E-Mail, Telefon, Wohnort | Fill from `profile` / `reusable-answers`. Read the email back. Street and Postleitzahl only if `profile` has them |
+| Anrede (Herr, Frau, Divers), Geschlecht | Leave for the user (gender) |
+| Geburtsdatum, Geburtsort, Staatsangehörigkeit, Familienstand, Konfession, Schwerbehinderung, Foto | Never. List for the user |
+| Matrikelnummer, Steuer-ID, Sozialversicherungsnummer, Ausweisnummer | Never. List for the user |
+| Eintrittstermin, frühester Starttermin, verfügbar ab | Fill from `prefs.availability`; never invent a date |
+| Wochenstunden, gewünschte Arbeitszeit | Fill from `filters.weekly_hours` inside the posting's range. More than 20 a week for a Werkstudent role in lecture periods: ask the user first |
+| Gehaltsvorstellung | `write-note` salary rules, in the field's unit (brutto, pro Stunde, pro Monat) |
+| Kündigungsfrist | From `reusable-answers`; if absent, leave and ask |
+| Studiengang, Hochschule, Abschluss, Semester | From `profile` Education |
+| Deutschkenntnisse, Englischkenntnisse | The level from `filters.languages` or `profile`, never higher |
+| Arbeitserlaubnis, "Dürfen Sie in Deutschland arbeiten?" | The work authorisation statement from `reusable-answers` if it has one; permit type, number and expiry never; otherwise leave |
+| Lebenslauf (upload) | `get_cv` |
+| Anschreiben (upload or text) | The role's `cover_letter_pdf` file, or the `cover_note` text if the field is text |
+| Zeugnisse, Immatrikulationsbescheinigung, Praktikumsbescheinigung | The user's own files: leave the slot and list it |
+| Wie haben Sie von uns erfahren | The true source |
+| Datenschutzhinweise gelesen, Einwilligung, Talentpool, Newsletter | Consent: leave unticked, queue with the question; see `/job-tracker:allow-consent` |
+
 ## Typeform-style one-question-at-a-time forms
 
 - The worst dropdowns seen. The page text and `aria-selected` report the keyboard highlight, not the committed answer, while the list is open. The only reliable read is a screenshot with the dropdown closed.

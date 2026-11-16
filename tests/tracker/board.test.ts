@@ -46,7 +46,7 @@ async function withBoard(args: (db: string) => string[], body: (b: { dir: string
 
 test('board.ts writes an owner-only state file, answers health checks and exits when idle', { timeout: 20_000 }, async () => {
   await withBoard(
-    (db) => ['--db', db, '--idle-ms', '3000'],
+    (db) => ['--db', db, '--idle-ms', '1500'],
     async ({ db, file, child, stdout, stderr, exited }) => {
       const state: BoardState = await waitFor(
         () => readBoardState(file),
