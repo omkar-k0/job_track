@@ -88,9 +88,10 @@ function link(href, text, className) {
 }
 
 const SVG = 'http://www.w3.org/2000/svg';
+// One outline set on a 20px grid, stroked at 1.5px by board.css; index.html draws the static ones with the same paths.
 function icon(paths) {
   const svg = document.createElementNS(SVG, 'svg');
-  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('viewBox', '0 0 20 20');
   svg.setAttribute('aria-hidden', 'true');
   for (const d of paths) {
     const path = document.createElementNS(SVG, 'path');
@@ -99,10 +100,27 @@ function icon(paths) {
   }
   return svg;
 }
-// A square with an arrow leaving its top-right corner: the usual "opens elsewhere" mark.
-const externalIcon = () => icon(['M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6', 'M15 3h6v6', 'M10 14 21 3']);
-const MOON = ['M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z'];
-const SUN = ['M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z', 'M12 2v2', 'M12 20v2', 'M4.9 4.9l1.4 1.4', 'M17.7 17.7l1.4 1.4', 'M2 12h2', 'M20 12h2', 'M4.9 19.1l1.4-1.4', 'M17.7 6.3l1.4-1.4'];
+const ICONS = {
+  // A square with an arrow leaving its top-right corner: the usual "opens elsewhere" mark.
+  external: ['M15 11v4.5a1 1 0 0 1-1 1H4.5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1H9', 'M12 3.5h4.5V8', 'M9 11l7.5-7.5'],
+  moon: ['M16.5 12.2A7 7 0 1 1 7.8 3.5a5.5 5.5 0 0 0 8.7 8.7z'],
+  sun: ['M10 6.75a3.25 3.25 0 1 0 0 6.5 3.25 3.25 0 0 0 0-6.5z', 'M10 2v1.75', 'M10 16.25V18', 'M2 10h1.75', 'M16.25 10H18', 'M4.35 4.35l1.24 1.24', 'M14.41 14.41l1.24 1.24', 'M4.35 15.65l1.24-1.24', 'M14.41 5.59l1.24-1.24'],
+  filter: ['M3 5.5h14', 'M5.5 10h9', 'M8 14.5h4'],
+  close: ['M5 5l10 10', 'M15 5L5 15'],
+  calendar: ['M3.5 5h13v11.5h-13z', 'M3.5 8.5h13', 'M7 3v3.5', 'M13 3v3.5'],
+  note: ['M5 2.75h7l3.5 3.5v11h-10.5z', 'M12 2.75v3.5h3.5', 'M7.5 10.5h5', 'M7.5 13.5h5'],
+  move: ['M3.5 10h12', 'M11.5 6l4 4-4 4'],
+  warning: ['M10 3l7.5 13.5h-15z', 'M10 8.5v3.5', 'M10 14.25v.01'],
+  check: ['M4 10.5l3.5 3.5L16 5.5'],
+  up: ['M10 15V5', 'M6 9l4-4 4 4'],
+  down: ['M10 5v10', 'M6 11l4 4 4-4'],
+};
+const externalIcon = () => icon(ICONS.external);
+// An icon, then text in its own span, so flex layouts keep the icon at the top-left of a wrapped line.
+function withIcon(node, name, text) {
+  node.append(icon(ICONS[name]), el('span', '', text));
+  return node;
+}
 
 // "€90K–€120K/yr", "from $150K/yr", "up to £80K/mo"; nothing when the posting had no band.
 function pay(role) {
@@ -354,18 +372,21 @@ function renderStats() {
   }
 
   const kpis = el('dl', 'kpis');
-  const kpi = (label) => {
+  const kpi = (label, glyph) => {
     const box = el('div', 'kpi');
     const dd = el('dd');
-    box.append(el('dt', '', label), dd);
+    const dt = el('dt', '', label);
+    dt.prepend(icon(ICONS[glyph]));
+    box.append(dt, dd);
     kpis.append(box);
     return dd;
   };
-  const week = kpi('Applied this week');
+  const week = kpi('Applied this week', 'check');
   week.append(el('span', 'big', String(stats.applied_this_week)), el('span', 'sub', `${plural(stats.applied_total, 'application')} in all`));
-  const reply = kpi('Reply rate');
+  const reply = kpi('Reply rate', 'note');
   reply.append(el('span', 'big', stats.reply_rate == null ? 'n/a' : `${Math.round(stats.reply_rate * 100)}%`), el('span', 'sub', stats.applied_total ? `${stats.replied} of ${stats.applied_total} answered` : 'No applications yet'));
-  const need = kpi('Needs my action');
+  const need = kpi('Needs my action', 'warning');
+  if (stats.needs_action) need.parentElement.classList.add('alert');
   need.append(el('span', 'big', String(stats.needs_action)));
   if (stats.needs_action) {
     const show = el('button', 'link', state.need ? 'Show all roles' : 'Show these');
@@ -378,7 +399,7 @@ function renderStats() {
   } else {
     need.append(el('span', 'sub', 'Nothing waiting'));
   }
-  const iv = kpi('Upcoming interviews');
+  const iv = kpi('Upcoming interviews', 'calendar');
   iv.append(el('span', 'big', String(stats.upcoming_interviews.length)));
   if (stats.upcoming_interviews.length) {
     const list = el('ul');
@@ -435,7 +456,7 @@ function syncControls() {
   $('f-need').checked = state.need;
   $('clear').hidden = !filtered();
   const active = [state.status, state.source, state.mode, state.smin, state.smax, state.need].filter(Boolean).length;
-  $('filters-toggle').textContent = active ? `Filters (${active})` : 'Filters';
+  $('filters-toggle').replaceChildren(icon(ICONS.filter), active ? `Filters (${active})` : 'Filters');
   for (const b of document.querySelectorAll('[data-view]')) b.setAttribute('aria-pressed', String(b.dataset.view === state.view));
 }
 
@@ -552,8 +573,8 @@ function card(role) {
   if (band) node.append(el('div', 'pay', band));
   const meta = [role.score != null ? `Score ${role.score}` : '', role.location_type || '', role.source || '', age(role.last_event)].filter(Boolean).join(' · ');
   if (meta) node.append(el('div', 'meta', meta));
-  if (role.next_interview) node.append(el('div', 'when', `Interview ${fmtDateTime(role.next_interview)}`));
-  for (const need of role.needs) node.append(el('div', 'needs', need.kind === 'question' ? `Needs you: ${need.text}` : need.text));
+  if (role.next_interview) node.append(withIcon(el('div', 'when'), 'calendar', `Interview ${fmtDateTime(role.next_interview)}`));
+  for (const need of role.needs) node.append(withIcon(el('div', 'needs'), 'warning', need.kind === 'question' ? `Needs you: ${need.text}` : need.text));
   node.addEventListener('click', (e) => {
     // A drag ends with a click on the same card; a link or form inside has its own job.
     if (e.target.closest('a, button, input, textarea, select, form') || performance.now() - lastDragEnd < 80) return;
@@ -583,6 +604,7 @@ function table(roles) {
     if (state.sort === key) th.setAttribute('aria-sort', state.dir === 'asc' ? 'ascending' : 'descending');
     const button = el('button', 'sort', def.label);
     button.type = 'button';
+    if (state.sort === key) button.append(icon(state.dir === 'asc' ? ICONS.up : ICONS.down));
     button.addEventListener('click', () => {
       // Text starts A to Z, numbers and dates start with the biggest or newest.
       state.dir = state.sort === key ? (state.dir === 'asc' ? 'desc' : 'asc') : def.text ? 'asc' : 'desc';
@@ -1041,7 +1063,8 @@ function renderDrawer(d) {
   h2.id = 'drawer-title';
   h2.tabIndex = -1;
   names.append(h2, el('p', 'd-title', role.title));
-  const close = el('button', 'd-close', '×');
+  const close = el('button', 'd-close');
+  close.append(icon(ICONS.close));
   close.type = 'button';
   close.setAttribute('aria-label', 'Close details');
   close.addEventListener('click', closeRole);
@@ -1060,7 +1083,8 @@ function renderDrawer(d) {
   const parts = [head, sub];
   if (d.needs.length) {
     const s = section('Needs your action');
-    for (const n of d.needs) s.append(el('div', 'needs', n.text));
+    s.classList.add('urgent');
+    for (const n of d.needs) s.append(withIcon(el('div', 'needs'), 'warning', n.text));
     parts.push(s);
   }
   parts.push(actions(d), details(d), interviews(d), timeline(d), artifacts(d));
@@ -1095,7 +1119,7 @@ function details(d) {
   fact(list, 'Company site', d.company?.domain);
   s.append(list);
   if (role.score_notes) s.append(el('p', 'note-box', role.score_notes));
-  if (d.company?.no_cold_apply) s.append(el('p', 'needs', `No cold applications here${d.company.no_cold_apply_reason ? `: ${d.company.no_cold_apply_reason}` : ''}`));
+  if (d.company?.no_cold_apply) s.append(withIcon(el('p', 'needs'), 'warning', `No cold applications here${d.company.no_cold_apply_reason ? `: ${d.company.no_cold_apply_reason}` : ''}`));
   if (d.company?.notes) s.append(el('p', 'note-box', d.company.notes));
   return s;
 }
@@ -1118,7 +1142,7 @@ function actions(d) {
     const reason = el('input');
     reason.name = 'reason';
     reason.placeholder = 'Why? (optional)';
-    const go = el('button', 'primary', 'Move');
+    const go = withIcon(el('button', 'primary'), 'move', 'Move');
     go.type = 'submit';
     const error = el('p', 'error');
     error.setAttribute('role', 'alert');
@@ -1146,7 +1170,7 @@ function actions(d) {
   const text = el('input');
   text.name = 'reason';
   text.placeholder = 'Add a note to the timeline';
-  const add = el('button', '', 'Add note');
+  const add = withIcon(el('button'), 'note', 'Add note');
   add.type = 'submit';
   const error = el('p', 'error');
   error.setAttribute('role', 'alert');
@@ -1179,7 +1203,7 @@ function interviews(d) {
   for (const i of d.interviews) {
     const item = el('li', 'item');
     const row = el('div', 'row');
-    row.append(el('span', 'strong', i.stage || 'Interview'), el('span', `tag${i.state === 'scheduled' ? ' ok' : i.state === 'cancelled' ? ' bad' : ''}`, i.state));
+    row.append(icon(ICONS.calendar), el('span', 'strong', i.stage || 'Interview'), el('span', `tag${i.state === 'scheduled' ? ' ok' : i.state === 'cancelled' ? ' bad' : ''}`, i.state));
     item.append(row);
     if (i.starts_at) item.append(el('div', '', fmtDateTime(i.starts_at, i.tz)));
     else if (i.state === 'pending') item.append(el('div', 'small', 'Time not booked yet'));
@@ -1231,8 +1255,9 @@ function artifacts(d) {
   for (const a of d.artifacts) {
     const item = el('li', 'item');
     const row = el('div', 'row');
-    row.append(el('span', 'strong', KINDS[a.kind] ?? a.kind), el('span', 'small', fmtDate(a.created_at)));
-    if (a.kind === 'gmail_draft' || a.verified) row.append(el('span', `tag${a.verified ? ' ok' : ''}`, a.verified ? 'verified' : 'unverified'));
+    row.append(icon(ICONS.note), el('span', 'strong', KINDS[a.kind] ?? a.kind), el('span', 'small', fmtDate(a.created_at)));
+    if (a.verified) row.append(withIcon(el('span', 'tag ok'), 'check', 'verified'));
+    else if (a.kind === 'gmail_draft') row.append(el('span', 'tag', 'unverified'));
     if (a.lint_errors) row.append(el('span', 'tag bad', plural(a.lint_errors, 'style error')));
     item.append(row);
     const href = safeHref(a.ref);
@@ -1280,7 +1305,7 @@ function paintTheme() {
   const btn = $('theme');
   btn.setAttribute('aria-pressed', String(dark));
   btn.title = dark ? 'Switch to light mode' : 'Switch to dark mode';
-  btn.replaceChildren(icon(dark ? SUN : MOON), Object.assign(el('span', 'sr'), { textContent: 'Dark mode' }));
+  btn.replaceChildren(icon(dark ? ICONS.sun : ICONS.moon), Object.assign(el('span', 'sr'), { textContent: 'Dark mode' }));
 }
 
 function initTheme() {

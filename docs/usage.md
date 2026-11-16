@@ -89,7 +89,9 @@ then runs a 5-result calibration sweep.
 
 ### The board
 
-`/job-tracker:board` opens a local page in your browser:
+`/job-tracker:board` opens a local page in your browser, titled **Laufbahn**: an editorial look in the system serif
+(Times New Roman), ivory and ink with an oxblood accent, hairline rules and inline icons. It loads no fonts,
+scripts or images from anywhere else.
 
 - **Stats header:** roles per lane, applications this week and in all, reply rate, cards that need you, and
   upcoming interviews.
@@ -99,7 +101,8 @@ then runs a 5-result calibration sweep.
   ones Claude has found but not yet scored.
 - **Details drawer:** click a card (or press Enter) for the role, its pay, history, interviews, drafts and
   linked duplicates.
-- **Dark mode:** follows your system setting; the toggle overrides it in that browser.
+- **Dark mode:** follows your system setting; the toggle overrides it in that browser. Both themes meet WCAG AA
+  text contrast.
 - **Keyboard:** `/` to search, arrow keys to move between cards or rows, Enter to open, Esc to close.
 
 ### Insight tools

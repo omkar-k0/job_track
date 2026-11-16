@@ -2,7 +2,7 @@
 description: Open the job-hunt kanban board in your browser. Drag cards to move roles.
 ---
 
-Open the user's job-hunt board.
+Open the user's job-hunt board (the page is titled Laufbahn).
 
 **If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Tell the user that in one sentence, offer to run `/job-tracker:setup` (it installs Node.js), and stop.
 

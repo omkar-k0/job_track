@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#f6eee0" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#20251f" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#faf7f0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#141312" media="(prefers-color-scheme: dark)">
 <meta name="color-scheme" content="light dark">
 <meta name="referrer" content="no-referrer">
-<link rel="icon" href="data:,">
-<title>Job Tracker board</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='1.5' y='1.5' width='29' height='29' fill='%23faf7f0' stroke='%231a1a1a'/%3E%3Ctext x='16' y='23.5' text-anchor='middle' font-family='Times New Roman,Times,serif' font-style='italic' font-size='22' fill='%237a1f2b'%3EL%3C/text%3E%3C/svg%3E">
+<title>Laufbahn</title>
 <link rel="stylesheet" href="/board.css">
 <script type="module" src="/board.js"></script>
 </head>
@@ -16,7 +16,7 @@
 <a class="skip" href="#content">Skip to the roles</a>
 <header>
   <div class="top">
-    <h1><span class="brand-mark" aria-hidden="true">j<span>t</span></span>Job Tracker<span class="brand-tag">MCP</span></h1>
+    <h1><svg class="brand-mark" viewBox="0 0 30 30" aria-hidden="true"><rect x="0.5" y="0.5" width="29" height="29"/><text x="15" y="22" text-anchor="middle">L</text></svg><span class="brand-name">Laufbahn</span><span class="brand-tag">Job tracker</span></h1>
     <p id="status" role="status" aria-live="polite"></p>
     <button type="button" id="theme" class="icon-btn" aria-pressed="false" title="Dark mode"><span class="sr">Dark mode</span></button>
   </div>
@@ -26,10 +26,11 @@
 <form id="toolbar" autocomplete="off">
   <div class="search">
     <label class="sr" for="f-q">Search roles</label>
+    <svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11z"/><path d="M13 13l4 4"/></svg>
     <input id="f-q" type="search" placeholder="Search company, title, stack…" spellcheck="false" aria-keyshortcuts="/">
     <kbd aria-hidden="true">/</kbd>
   </div>
-  <button type="button" id="filters-toggle" class="filters-toggle" aria-expanded="false" aria-controls="filters">Filters</button>
+  <button type="button" id="filters-toggle" class="filters-toggle" aria-expanded="false" aria-controls="filters"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14"/><path d="M5.5 10h9"/><path d="M8 14.5h4"/></svg>Filters</button>
   <div class="filters" id="filters">
     <label><span class="sr">Status</span><select id="f-status"></select></label>
     <label><span class="sr">Source</span><select id="f-source"></select></label>
@@ -47,8 +48,8 @@
     <span id="count" aria-live="polite"></span>
     <fieldset class="seg">
       <legend class="sr">View</legend>
-      <button type="button" data-view="board" aria-pressed="true">Board</button>
-      <button type="button" data-view="table" aria-pressed="false">Table</button>
+      <button type="button" data-view="board" aria-pressed="true"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 3.5h3.5v13h-3.5z"/><path d="M8.25 3.5h3.5v9h-3.5z"/><path d="M13 3.5h3.5v6h-3.5z"/></svg>Board</button>
+      <button type="button" data-view="table" aria-pressed="false"><svg class="ico" viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 4h13v12h-13z"/><path d="M3.5 8h13"/><path d="M3.5 12h13"/><path d="M8 8v8"/></svg>Table</button>
     </fieldset>
   </div>
 </form>

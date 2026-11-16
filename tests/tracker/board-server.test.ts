@@ -87,20 +87,12 @@ test('the page is static, carries no data and sends a strict CSP', async () => {
   }
 });
 
-test('the board serves bundled fonts under its same-origin font policy', async () => {
+test('the board serves no fonts or other files: it uses the system serif and inline icons', async () => {
   const b = await board();
   try {
     const page = await b.send('GET', '/');
-    assert.match(String(page.headers['content-security-policy']), /font-src 'self';/);
-    for (const family of ['geist', 'geist-mono', 'petrona', 'petrona-italic']) {
-      for (const subset of ['latin', 'latin-ext']) {
-        const font = await b.send('GET', `/fonts/${family}-${subset}.woff2`);
-        assert.equal(font.status, 200);
-        assert.equal(font.headers['content-type'], 'font/woff2');
-        assert.ok(font.body.startsWith('wOF2'), 'serves a WOFF2 font');
-      }
-    }
-    assert.equal((await b.send('GET', '/fonts/unknown.woff2')).status, 404);
+    assert.doesNotMatch(String(page.headers['content-security-policy']), /font-src/, 'default-src none blocks every font');
+    for (const path of ['/fonts/petrona-latin.woff2', '/fonts/geist-latin.woff2', '/fonts/unknown.woff2', '/icons.svg', '/board']) assert.equal((await b.send('GET', path)).status, 404, path);
   } finally {
     await b.close();
   }
@@ -382,4 +374,5 @@ test('the page source never builds markup, evaluates strings or uses inline hand
   assert.doesNotMatch(html, /\son[a-z]+\s*=/i, 'no inline handler');
   assert.doesNotMatch(html, /\sstyle\s*=/i, 'no inline style attribute');
   assert.doesNotMatch(`${html}${css}${js}`, /https?:\/\/(?!www\.w3\.org\/2000\/svg)[a-z0-9.-]+\.[a-z]{2,}/i, 'no external host: no CDN, no remote font');
+  assert.doesNotMatch(css, /@font-face|url\(/, 'no web fonts or remote images: the system serif and inline SVG only');
 });

@@ -74,7 +74,7 @@ Restart Hermes and type `/job-tracker:setup`. Details:
 | `/job-tracker:triage <source>` | Reconcile and clean a tracker board with the delete guard. |
 | `/job-tracker:prep <company>` | Interview prep from your stories. |
 | `/job-tracker:status` | Pipeline summary and open items. |
-| `/job-tracker:board` | Board in your browser: kanban or table, search and filters, a stats header, a details drawer per role, dark mode and keyboard shortcuts. |
+| `/job-tracker:board` | Board in your browser (Laufbahn): kanban or table, search and filters, a stats header, a details drawer per role, dark mode and keyboard shortcuts. |
 | `/job-tracker:cover-letter <role-id>` | Cover letter, optionally as a one-page PDF. |
 | `/job-tracker:correct` | Turn your override into a rule with a reason and example. |
 

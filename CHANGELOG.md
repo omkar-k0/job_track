@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Board restyled as Laufbahn.** The board page has a new name and an editorial look: a framed italic "L"
+  monogram, Times New Roman throughout with small-caps labels and tabular figures, ivory, ink and oxblood with
+  a matching dark theme, per-status colours, hairline rules and 2px corners, and one inline outline icon set.
+  Every text colour pair in both themes meets WCAG AA. The bundled web fonts are gone, so the server serves only
+  the page, its stylesheet and its script, and the CSP no longer allows fonts. Features, keyboard use and the
+  plugin's name and commands are unchanged.
+
 ## 0.6.0
 
 First release of this repository as an independent project.

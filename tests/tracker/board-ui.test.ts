@@ -50,6 +50,7 @@ test('the page lists every lane card and the stats header', { skip: SKIP, timeou
     const dom = await b.dom('');
     // found is counted, not a lane: 9 roles, 8 on the board.
     assert.equal(cards(dom), 8);
+    assert.match(dom, /<span class="brand-name">Laufbahn<\/span>/);
     assert.match(dom, /Applied this week<\/dt>/);
     assert.match(dom, /Reply rate<\/dt><dd><span class="big">75%<\/span>/);
     assert.match(dom, /Upcoming interviews<\/dt><dd><span class="big">1<\/span>/);
@@ -106,7 +107,7 @@ test('scraped text is shown as text: names, titles, notes and sources never beco
   try {
     for (const hash of ['', 'view=table', `role=${b.hostile}`, `view=table&role=${b.hostile}`]) {
       const dom = await b.dom(hash);
-      assert.match(dom, /<title>Job Tracker board<\/title>/, `title untouched (${hash})`);
+      assert.match(dom, /<title>Laufbahn<\/title>/, `title untouched (${hash})`);
       assert.doesNotMatch(dom, /<img\b/i, `no <img> element made from data (${hash})`);
       assert.doesNotMatch(dom, /<svg onload/i);
       assert.doesNotMatch(dom, /<script>document/i);
