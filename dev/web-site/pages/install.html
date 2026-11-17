@@ -1,0 +1,103 @@
+<section class="first hero">
+  <div class="wrap">
+    <p class="label">Install</p>
+    <h1>Set it up once</h1>
+    <p class="lede">Four short steps, then a guided setup in the chat. Nothing runs on this site: Laufbahn installs into Claude Code and keeps its data on your computer.</p>
+    <ul class="jump">
+      <li><a href="#steps">The steps</a></li>
+      <li><a href="#hermes">Hermes Agent</a></li>
+      <li><a href="#after">After setup</a></li>
+    </ul>
+  </div>
+</section>
+
+<section id="steps">
+  <div class="wrap">
+    <p class="label">One-time steps</p>
+    <h2>Checklist</h2>
+    <ol class="checklist">
+      <li>
+        <h3>Check the requirements</h3>
+        <ul>
+          <li><strong>Claude Code 2.1.295 or newer</strong> (the Desktop app or the CLI), or <strong>Hermes Agent</strong>.</li>
+          <li><strong>Node.js 22.18 or newer.</strong> If it is missing, <code>/laufbahn:setup</code> offers to install it on macOS and Windows. The tracker uses the built-in <code>node:sqlite</code> module and Node runs the plugin's TypeScript directly, so there are no runtime npm dependencies.</li>
+        </ul>
+      </li>
+      <li>
+        <h3>Add the marketplace</h3>
+        <p>In Claude Code, type:</p>
+        <div class="code"><pre><code>/plugin marketplace add omkar-k0/laufbahn</code></pre><button type="button" class="copy">Copy</button></div>
+        <p class="note">Using the Claude desktop app instead? Choose <strong>Code</strong>, select <strong>Local</strong> and a folder for your job search. Next to the message box open <strong>+, Plugins, Add plugin</strong>, add the repository <code>https://github.com/omkar-k0/laufbahn</code> as a marketplace, and install <strong>laufbahn</strong> for your user account.</p>
+      </li>
+      <li>
+        <h3>Install the plugin</h3>
+        <div class="code"><pre><code>/plugin install laufbahn@laufbahn</code></pre><button type="button" class="copy">Copy</button></div>
+      </li>
+      <li>
+        <h3>Run the setup</h3>
+        <div class="code"><pre><code>/laufbahn:setup</code></pre><button type="button" class="copy">Copy</button></div>
+        <p>A guided conversation. It goes through, in order:</p>
+        <ul>
+          <li>your CV, and the hard filters (employment types, hours, enrolment, languages, pay floor, where you can work);</li>
+          <li>soft preferences and writing rules, including the language to write in;</li>
+          <li>accounts, including which calendar your interview invites land on;</li>
+          <li>connectors and a browser check;</li>
+          <li>sources: which job boards and employer pages to read, with German ones first if you are searching in Germany;</li>
+          <li>autonomy: review each application yourself (the default), or let it apply automatically to matching roles;</li>
+          <li>the weekday schedule and how the daily report should reach you;</li>
+          <li>a calibration run of five results, so you can say "no, because..." and teach it your taste.</li>
+        </ul>
+        <p>It never asks for passwords or ID numbers, and it tells you where your personal data is stored before saving any of it. You can stop at any point and run <code>/laufbahn:setup</code> again to resume. Already tracking in a markdown table? <code>/laufbahn:import &lt;folder&gt;</code> brings it in.</p>
+      </li>
+      <li>
+        <h3>Connect what helps (recommended)</h3>
+        <ul>
+          <li><strong>Gmail and Google Calendar connectors</strong>, for recruiter replies, interview invites and reply drafts.</li>
+          <li><strong>A browser:</strong> Claude in Chrome or the host's built-in browser, for logged-in job boards, employer pages and application forms.</li>
+          <li><strong>Optional:</strong> a LinkedIn MCP server, used read-only for job search and inbox.</li>
+        </ul>
+        <p class="note">Without a browser the daily sweep still runs on connectors and the tracker alone. Work that needs a browser is queued, and the report says so.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="hermes">
+  <div class="wrap">
+    <p class="label">Alternative</p>
+    <h2>Hermes Agent</h2>
+    <p class="intro">Use Hermes Agent instead of Claude Code? Clone the repository and run the installer:</p>
+    <div class="code"><pre><code>git clone https://github.com/omkar-k0/laufbahn.git
+cd laufbahn
+plugin/scripts/hermes-install.sh</code></pre><button type="button" class="copy">Copy</button></div>
+    <p>Restart Hermes and type <code>/laufbahn:setup</code>. The installer registers the tracker as a server named <code>job_hunt_tracker</code> and checks that Hermes saved it. Known differences, such as a weaker stop gate in unattended runs, are listed in the <a href="https://github.com/omkar-k0/laufbahn/blob/main/docs/hermes.md" rel="noopener">Hermes guide</a>.</p>
+  </div>
+</section>
+
+<section id="after">
+  <div class="wrap">
+    <p class="label">After setup</p>
+    <h2>The daily commands</h2>
+    <p class="intro">Once the weekday task is scheduled, <code>/laufbahn:sweep</code> runs by itself. These are the commands you type.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">Command</th><th scope="col">What it does</th></tr></thead>
+        <tbody>
+          <tr><td><code>/laufbahn:sweep [--limit N]</code></td><td>The daily run. Applies only when you enabled auto-apply; otherwise it never submits.</td></tr>
+          <tr><td><code>/laufbahn:status</code></td><td>Pipeline summary and open items.</td></tr>
+          <tr><td><code>/laufbahn:board</code></td><td>The board in your browser: kanban or table, search, filters and stats.</td></tr>
+          <tr><td><code>/laufbahn:apply [role-id]</code></td><td>Verify, write, fill, read back, then submit automatically if enabled or wait for your approval.</td></tr>
+          <tr><td><code>/laufbahn:approve &lt;role-id&gt;</code></td><td>You type this on the filled form to allow one submit attempt.</td></tr>
+          <tr><td><code>/laufbahn:cover-letter &lt;role-id&gt;</code></td><td>A cover letter, optionally as a one-page PDF.</td></tr>
+          <tr><td><code>/laufbahn:prep &lt;company&gt;</code></td><td>Interview prep from your own stories.</td></tr>
+          <tr><td><code>/laufbahn:correct</code></td><td>Turn an override of yours into a rule, with a reason and an example.</td></tr>
+          <tr><td><code>/laufbahn:allow-consent</code></td><td>Approve consent boxes for one specific application form.</td></tr>
+          <tr><td><code>/laufbahn:triage &lt;source&gt;</code></td><td>Reconcile and clean a tracker board, behind the delete guard.</td></tr>
+          <tr><td><code>/laufbahn:setup</code></td><td>Reconfigure or resume setup.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Ask Claude in any chat for <code>follow_ups</code>, <code>funnel_stats</code> or <code>export_data</code>. They read your local tracker only, and exports are written to <code>~/.laufbahn/exports/</code> only when you ask.</p>
+    <p>Full guide: <a href="https://github.com/omkar-k0/laufbahn/blob/main/docs/usage.md" rel="noopener">docs/usage.md</a>. For a Werkstudent job, an internship or a thesis, read <a href="https://github.com/omkar-k0/laufbahn/blob/main/docs/germany.md" rel="noopener">docs/germany.md</a> too.</p>
+  </div>
+</section>

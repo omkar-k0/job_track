@@ -1,0 +1,141 @@
+<section class="first hero">
+  <div class="wrap">
+    <p class="label">How does it work?</p>
+    <h1>One setup, then a daily routine</h1>
+    <p class="lede">You answer questions once. After that Laufbahn sweeps for roles every weekday, prepares the best ones, and stops at the points that need you.</p>
+    <ul class="jump">
+      <li><a href="#flow">The flow</a></li>
+      <li><a href="#hooks">Safety hooks</a></li>
+      <li><a href="#tracker">The local tracker</a></li>
+      <li><a href="#board">The board</a></li>
+    </ul>
+  </div>
+</section>
+
+<section id="flow">
+  <div class="wrap">
+    <p class="label">The flow</p>
+    <h2>Five stages</h2>
+    <ol class="steps">
+      <li class="step">
+        <h3>Setup</h3>
+        <p class="when">Once. Run <code>/laufbahn:setup</code>; you can stop and resume.</p>
+        <p>A guided conversation: CV import, hard filters, preferences, writing rules, accounts, connectors, a browser check, sources, how much it may do alone, and the daily schedule. It ends with a calibration sweep of five results.</p>
+        <ul>
+          <li>It asks rather than guesses for anything that gates applications, and saves a section only after you confirm it.</li>
+          <li>Every "no, because..." you give becomes a rule it follows from then on.</li>
+          <li>Review first is the default. Automatic submission is a choice you make here, and can turn off later.</li>
+        </ul>
+      </li>
+      <li class="step">
+        <h3>Daily sweep</h3>
+        <p class="when">Every weekday, as a local scheduled task. Command: <code>/laufbahn:sweep</code>.</p>
+        <p>It reads your inbox and calendar if connected, then works through new roles in four steps:</p>
+        <ol class="pipe">
+          <li><b>Sources</b>One agent per available job board or employer page.</li>
+          <li><b>Dedupe</b>Against everything you have touched.</li>
+          <li><b>Verify</b>On the employer's own posting.</li>
+          <li><b>Score</b>Against your filters and rules.</li>
+        </ol>
+        <ul>
+          <li>Sources are read-only. It never clicks a board's own apply button and never creates an account.</li>
+          <li>A role that fails a hard filter is dropped, with the employer's own quote as evidence.</li>
+          <li>A rejection blocks only the posting it was for. A company where you already have a live application, or one you marked as no cold apply, is never prepared.</li>
+        </ul>
+      </li>
+      <li class="step">
+        <h3>Apply</h3>
+        <p class="when">For the top scored roles. In a sweep, or on demand with <code>/laufbahn:apply</code>.</p>
+        <p>The steps are always in this order:</p>
+        <ol class="pipe">
+          <li><b>Draft</b>A cover note in your writing rules; a prose check must pass.</li>
+          <li><b>Fill</b>The employer's form, with your CV attached.</li>
+          <li><b>Read back</b>Every value, from the page itself.</li>
+          <li><b>Approval</b>Yours, or your saved auto-apply choice.</li>
+        </ol>
+        <ul>
+          <li>In review-first mode it shows every field and value, then waits. You type <code>/laufbahn:approve</code> with the role's id to allow one submit.</li>
+          <li>Consent, personal data, a login, a visible CAPTCHA or a missing answer all come back to you. The role stays queued with the one question that is holding it.</li>
+          <li>It reports an application as sent only after it has captured the confirmation page.</li>
+        </ul>
+      </li>
+      <li class="step">
+        <h3>Track</h3>
+        <p class="when">Continuously, from the tracker and, if connected, Gmail and Google Calendar.</p>
+        <p>Replies and interview invites update the role. Every role you touch gets an event with a reason, so its history can be read later.</p>
+        <ul>
+          <li><strong>Follow-ups:</strong> applications with no reply after a week (you can change the time) and interviews with no outcome recorded.</li>
+          <li><strong>Funnel stats:</strong> how many roles reached each stage, conversion between stages, reply rate by source and applications per week.</li>
+          <li><strong>Interview prep:</strong> <code>/laufbahn:prep</code> builds a sheet from your own stories.</li>
+        </ul>
+      </li>
+      <li class="step">
+        <h3>Daily report</h3>
+        <p class="when">The last step of every sweep.</p>
+        <p>One short report: what happened, then what needs you. The second part is split into what is new or changed today, other open actions, and roles still waiting, so old decisions do not look fresh.</p>
+        <ul>
+          <li>It states which capabilities were missing, such as no browser, and what was queued or skipped because of that.</li>
+          <li>It arrives as the run's output, as a file, or as a Gmail draft to yourself, as you chose in setup.</li>
+          <li>A sweep cannot end until every role it touched has an event and the report has been rendered.</li>
+        </ul>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="hooks">
+  <div class="wrap">
+    <p class="label">Safety hooks</p>
+    <h2>Rules the model cannot talk its way around</h2>
+    <p class="intro">Hooks are small programs that check every sensitive action before it happens. They run outside the model, so a rule here holds even if the model would rather skip it. If a hook denies something, the plugin reports the denial and does not try another route.</p>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th scope="col">Gate</th><th scope="col">In plain words</th></tr></thead>
+        <tbody>
+          <tr><td>Send</td><td>Email and LinkedIn sends are blocked in every session. The plugin writes drafts only.</td></tr>
+          <tr><td>Submit</td><td>A submit click needs your saved auto-apply choice or your <code>/laufbahn:approve</code>, and a passing eligibility check. Automatic submission also needs a role that is scored and queued, with no open question.</td></tr>
+          <tr><td>Board delete</td><td>Deleting cards from a tracker board needs a fresh, clean result from the triage guard.</td></tr>
+          <tr><td>Personal data and consent</td><td>Passport, nationality, age, birth date, gender, marital status and ID fields are denied. Consent boxes stay unticked unless you allow them for that form.</td></tr>
+          <tr><td>Stop</td><td>A sweep session cannot finish until every role has an event and the report was rendered.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Browser and send tools fail closed: if a hook itself crashes or times out, the action is blocked. One limit to know: the hooks match English field labels and button names. On German forms the plugin follows the same rules from its instructions, but review the form before you approve.</p>
+  </div>
+</section>
+
+<section id="tracker">
+  <div class="wrap two-col">
+    <div>
+      <p class="label">The local tracker</p>
+      <h2>Your search lives in one file</h2>
+      <p class="intro">The tracker is a small server that Claude talks to over standard input and output. It stores everything in a SQLite database on your computer.</p>
+    </div>
+    <div>
+      <ul class="plain-list">
+        <li><strong>Where.</strong> <code>~/.laufbahn/tracker.db</code>. The folder is owner-only, and so is the database.</li>
+        <li><strong>What.</strong> Your profile, filters, rules, roles, companies, events, interviews and drafts. Setup also keeps a copy of your CV in <code>~/.laufbahn/cv/</code> for forms and attachments.</li>
+        <li><strong>Network.</strong> No network listener, no token. Built on the <code>node:sqlite</code> module that comes with Node.js, with no runtime npm dependencies.</li>
+        <li><strong>Telemetry.</strong> None. To remove your data, delete <code>~/.laufbahn</code>.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="board">
+  <div class="wrap">
+    <p class="label">The board</p>
+    <h2>See the whole search at a glance</h2>
+    <p class="intro">Type <code>/laufbahn:board</code> and a page opens in your browser: your roles as lanes (kanban) or as a table.</p>
+    <div class="grid three">
+      <div class="card"><h3>Look</h3><p>A stats header with roles per lane, applications this week, reply rate, cards that need you and upcoming interviews.</p></div>
+      <div class="card"><h3>Search</h3><p>Search company, title and stack. Filter by status, source, work mode and score. The view is kept in the link.</p></div>
+      <div class="card"><h3>Act</h3><p>Drag a card to another lane to move a role. Open a card for its pay, history, interviews, drafts and linked duplicates.</p></div>
+    </div>
+    <p class="note">The board is the one place the tracker listens on the network: on <code>127.0.0.1</code> only (your own computer), with a new token in each link, and it stops after 30 idle minutes.</p>
+    <div class="cta">
+      <a class="btn primary" href="/demo">Open the live demo</a>
+      <a class="btn" href="/install">Install</a>
+    </div>
+  </div>
+</section>
