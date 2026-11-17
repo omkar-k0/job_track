@@ -17,26 +17,26 @@ const PLUGIN = join(REPO, 'plugin');
 const HOOK = join(PLUGIN, 'hooks', 'dsh.ts');
 const INSTALL = join(PLUGIN, 'scripts', 'dsh-install.ts');
 const CHROME = 'mcp__claude-in-chrome__';
-const TRACKER = 'mcp__job_tracker__';
+const TRACKER = 'mcp__laufbahn_tracker__';
 
 let home: string;
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'jh-dsh-'));
 });
 
-test('typed /job-tracker-<name> commands map onto the form the prompt gate parses', () => {
-  assert.deepEqual(gatePrompt('/job-tracker-approve 12'), { prompt: '/job-tracker:approve 12', command: 'approve', args: '12' });
-  assert.deepEqual(gatePrompt('  /job-tracker-sweep \n'), { prompt: '/job-tracker:sweep', command: 'sweep', args: '' });
+test('typed /laufbahn-<name> commands map onto the form the prompt gate parses', () => {
+  assert.deepEqual(gatePrompt('/laufbahn-approve 12'), { prompt: '/laufbahn:approve 12', command: 'approve', args: '12' });
+  assert.deepEqual(gatePrompt('  /laufbahn-sweep \n'), { prompt: '/laufbahn:sweep', command: 'sweep', args: '' });
   // Only a whole-prompt command maps; quotations and other forms pass through unchanged.
-  assert.deepEqual(gatePrompt('please run /job-tracker-approve 12'), { prompt: 'please run /job-tracker-approve 12', command: null, args: '' });
-  assert.deepEqual(gatePrompt('/job-tracker:approve 12'), { prompt: '/job-tracker:approve 12', command: null, args: '' });
+  assert.deepEqual(gatePrompt('please run /laufbahn-approve 12'), { prompt: 'please run /laufbahn-approve 12', command: null, args: '' });
+  assert.deepEqual(gatePrompt('/laufbahn:approve 12'), { prompt: '/laufbahn:approve 12', command: null, args: '' });
   assert.equal(gatePrompt(undefined).prompt, '');
 });
 
 // --- hooks/dsh.ts e2e, with the payloads dsh-hooks-claude-code sends ---
 
 function dsh(event: string, payload: Record<string, unknown>, status = 0) {
-  const r = spawnSync(process.execPath, ['--no-warnings', HOOK, event], { input: JSON.stringify({ transcript_path: '', hook_event_name: event, ...payload }), env: { ...process.env, JOB_TRACKER_HOME: home, JOB_TRACKER_DB: '' }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['--no-warnings', HOOK, event], { input: JSON.stringify({ transcript_path: '', hook_event_name: event, ...payload }), env: { ...process.env, LAUFBAHN_HOME: home, LAUFBAHN_DB: '' }, encoding: 'utf8' });
   assert.equal(r.status, status, r.stderr);
   return { out: r.stdout.trim() ? JSON.parse(r.stdout) : null, stderr: r.stderr };
 }
@@ -69,13 +69,13 @@ test('dsh.ts: send tools are blocked, unrelated tools pass silently', () => {
   assert.equal(dsh('pre-tool', { session_id: 'd1', tool_name: 'mcp__github__list_issues', tool_input: {} }).out, null);
 });
 
-test('dsh.ts: a submit click needs the user approval typed as /job-tracker-approve, and uses it once', () => {
+test('dsh.ts: a submit click needs the user approval typed as /laufbahn-approve, and uses it once', () => {
   const role = verifiedRole();
   const sid = 'd2';
   dsh('pre-tool', { session_id: sid, tool_name: `${TRACKER}open_items`, tool_input: {} }); // marks the session
   openApplication(sid);
   assert.match(deniedBy(dsh('pre-tool', click(sid)).out) || '', /needs the user's approval/);
-  const approved = dsh('prompt', { session_id: sid, prompt: `/job-tracker-approve ${role.id}` }).out;
+  const approved = dsh('prompt', { session_id: sid, prompt: `/laufbahn-approve ${role.id}` }).out;
   assert.equal(approved.hookSpecificOutput.hookEventName, 'UserPromptSubmit');
   assert.match(approved.hookSpecificOutput.additionalContext, /gate_check passed/);
   assert.match(approved.hookSpecificOutput.additionalContext, new RegExp(`\\$ARGUMENTS = "${role.id}"`));
@@ -97,7 +97,7 @@ test('dsh.ts: a submit is blocked for a posting applied to before, even after a 
   const sid = 'd6';
   dsh('pre-tool', { session_id: sid, tool_name: `${TRACKER}open_items`, tool_input: {} });
   openApplication(sid);
-  const approved = dsh('prompt', { session_id: sid, prompt: `/job-tracker-approve ${role.id}` }).out;
+  const approved = dsh('prompt', { session_id: sid, prompt: `/laufbahn-approve ${role.id}` }).out;
   assert.match(approved.hookSpecificOutput.additionalContext, /gate_check fails: .*This posting was applied to before/);
   assert.match(deniedBy(dsh('pre-tool', click(sid)).out) || '', new RegExp(`Submit blocked for role ${role.id}: .*This posting was applied to before: role ${role.id} was closed \\(rejected\\)`));
 });
@@ -106,7 +106,7 @@ test('dsh.ts: an approval that opens a fresh session (a subagent task) is not re
   // dsh gives a subagent its own session and sends its task through the same prompt hook. A fresh session
   // has no browser page in its step log, so the approval cannot bind to a form.
   const role = verifiedRole();
-  const out = dsh('prompt', { session_id: 'child', prompt: `/job-tracker-approve ${role.id}` }).out;
+  const out = dsh('prompt', { session_id: 'child', prompt: `/laufbahn-approve ${role.id}` }).out;
   assert.match(out.hookSpecificOutput.additionalContext, /was not recorded: the current browser page could not be identified/);
   openApplication('child');
   assert.match(deniedBy(dsh('pre-tool', click('child')).out) || '', /needs the user's approval/);
@@ -114,7 +114,7 @@ test('dsh.ts: an approval that opens a fresh session (a subagent task) is not re
 
 test('dsh.ts: an unfinished sweep is held three times, then let go', () => {
   const sid = 'd4';
-  dsh('prompt', { session_id: sid, prompt: '/job-tracker-sweep' });
+  dsh('prompt', { session_id: sid, prompt: '/laufbahn-sweep' });
   dsh('post-tool', { session_id: sid, tool_use_id: 'u1', tool_name: `${TRACKER}upsert_role`, tool_input: { company: 'A', title: 'B' }, tool_response: JSON.stringify({ role: { id: 1, title: 'B' }, created: true }) });
   for (let i = 0; i < 3; i++) {
     const { out } = dsh('stop', { session_id: sid, stop_hook_active: false });
@@ -127,14 +127,14 @@ test('dsh.ts: an unfinished sweep is held three times, then let go', () => {
 
 test('dsh.ts: tracker errors in the step log do not count as done', () => {
   const sid = 'd5';
-  dsh('prompt', { session_id: sid, prompt: '/job-tracker-sweep' });
+  dsh('prompt', { session_id: sid, prompt: '/laufbahn-sweep' });
   dsh('post-tool', { session_id: sid, tool_use_id: 'r1', tool_name: `${TRACKER}render_report`, tool_input: {}, tool_response: JSON.stringify({ error: 'no run' }) });
   assert.match(dsh('stop', { session_id: sid }).out.reason, /No daily report rendered/);
 });
 
 test('dsh.ts: an event written through a linked duplicate\'s old id counts for the role upsert_role returned', () => {
   const sid = 'd7';
-  dsh('prompt', { session_id: sid, prompt: '/job-tracker-sweep' });
+  dsh('prompt', { session_id: sid, prompt: '/laufbahn-sweep' });
   dsh('post-tool', { session_id: sid, tool_use_id: 'u1', tool_name: `${TRACKER}upsert_role`, tool_input: { id: 2, title: 'B' }, tool_response: JSON.stringify({ role: { id: 1, title: 'B' }, created: false }) });
   dsh('post-tool', { session_id: sid, tool_use_id: 't1', tool_name: `${TRACKER}transition`, tool_input: { role_id: 2, to: 'dropped' }, tool_response: JSON.stringify({ role: { id: 1, status: 'dropped' }, from: 'scored', to: 'dropped' }) });
   const { reason } = dsh('stop', { session_id: sid }).out;
@@ -167,7 +167,7 @@ test('dsh-hooks.json gates the same tools as hooks.json, through hooks/dsh.ts', 
 
 function runHookCommand(command: string, path: string, input = JSON.stringify({ session_id: 'w1', tool_name: `${CHROME}computer`, tool_input: {} })) {
   const line = command.replaceAll(`\${CLAUDE_PLUGIN_ROOT}`, PLUGIN);
-  return spawnSync('/bin/bash', ['-c', line], { input, env: { PATH: path, JOB_TRACKER_HOME: home }, encoding: 'utf8' });
+  return spawnSync('/bin/bash', ['-c', line], { input, env: { PATH: path, LAUFBAHN_HOME: home }, encoding: 'utf8' });
 }
 
 function nodeBin() {
@@ -215,7 +215,7 @@ test('dsh-install writes every command, skill and agent as a dsh skill with plug
   const names = readdirSync(skills).sort();
   const expected = readdirSync(join(PLUGIN, 'commands')).length + readdirSync(join(PLUGIN, 'skills')).length + readdirSync(join(PLUGIN, 'agents')).length;
   assert.equal(names.length, expected);
-  for (const name of ['job-tracker-sweep', 'job-tracker-approve', 'job-tracker-setup', 'job-tracker-setup-guide', 'job-tracker-fill-form', 'job-tracker-agent-scorer']) assert.ok(names.includes(name), name);
+  for (const name of ['laufbahn-sweep', 'laufbahn-approve', 'laufbahn-setup', 'laufbahn-setup-guide', 'laufbahn-fill-form', 'laufbahn-agent-scorer']) assert.ok(names.includes(name), name);
   for (const name of names) {
     // dsh drops a skill whose name is not kebab-case.
     assert.match(name, /^[a-z0-9]+(?:-[a-z0-9]+)*$/);
@@ -223,14 +223,14 @@ test('dsh-install writes every command, skill and agent as a dsh skill with plug
     const fm = frontmatter(text);
     assert.equal(fm.name, name);
     assert.ok(JSON.parse(fm.description || '""').length > 20, `${name} has a description`);
-    assert.doesNotMatch(text, /job-tracker:/, `${name} uses dsh skill names`);
+    assert.doesNotMatch(text, /laufbahn:/, `${name} uses dsh skill names`);
     assert.doesNotMatch(text, /\$\{CLAUDE_PLUGIN_ROOT\}/, `${name} has plugin paths filled in`);
   }
-  assert.equal(frontmatter(readFileSync(join(skills, 'job-tracker-approve', 'SKILL.md'), 'utf8'))['disable-model-invocation'], 'true');
-  assert.equal(frontmatter(readFileSync(join(skills, 'job-tracker-agent-scorer', 'SKILL.md'), 'utf8'))['user-invocable'], 'false');
-  assert.match(readFileSync(join(skills, 'job-tracker-triage-tracker', 'SKILL.md'), 'utf8'), new RegExp(`${PLUGIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/skills/triage-tracker/guard\\.js`));
-  assert.ok(lstatSync(join(skills, 'job-tracker-triage-tracker', 'guard.js')).isSymbolicLink());
-  assert.match(readFileSync(join(skills, 'job-tracker-sweep', 'SKILL.md'), 'utf8'), /skill `job-tracker-agent-<name>`/);
+  assert.equal(frontmatter(readFileSync(join(skills, 'laufbahn-approve', 'SKILL.md'), 'utf8'))['disable-model-invocation'], 'true');
+  assert.equal(frontmatter(readFileSync(join(skills, 'laufbahn-agent-scorer', 'SKILL.md'), 'utf8'))['user-invocable'], 'false');
+  assert.match(readFileSync(join(skills, 'laufbahn-triage-tracker', 'SKILL.md'), 'utf8'), new RegExp(`${PLUGIN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/skills/triage-tracker/guard\\.js`));
+  assert.ok(lstatSync(join(skills, 'laufbahn-triage-tracker', 'guard.js')).isSymbolicLink());
+  assert.match(readFileSync(join(skills, 'laufbahn-sweep', 'SKILL.md'), 'utf8'), /skill `laufbahn-agent-<name>`/);
 });
 
 test('dsh-install patches each profile once, keeps the user\'s entries, and uninstalls cleanly', () => {
@@ -238,16 +238,16 @@ test('dsh-install patches each profile once, keeps the user\'s entries, and unin
   mkdirSync(dirname(web), { recursive: true });
   const mine = "# my patch\n- insert:\n    - id: my-memory\n      name: '@deepseek-ai/dsh-mcp-client'\n";
   writeFileSync(web, mine);
-  const own = join(home, 'skills', 'job-tracker-mine');
+  const own = join(home, 'skills', 'laufbahn-mine');
   mkdirSync(own, { recursive: true });
-  writeFileSync(join(own, 'SKILL.md'), '---\nname: job-tracker-mine\ndescription: mine\n---\n');
+  writeFileSync(join(own, 'SKILL.md'), '---\nname: laufbahn-mine\ndescription: mine\n---\n');
 
   install(home);
   install(home);
   const patched = readFileSync(web, 'utf8');
   assert.ok(patched.startsWith(mine.trimEnd()));
-  assert.equal(patched.split('# >>> job-tracker').length, 2, 'one block after two installs');
-  assert.match(patched, /serverName: job_tracker/);
+  assert.equal(patched.split('# >>> laufbahn').length, 2, 'one block after two installs');
+  assert.match(patched, /serverName: laufbahn_tracker/);
   assert.match(patched, new RegExp(`args: \\['--no-warnings', '${join(PLUGIN, 'servers', 'tracker', 'src', 'index.ts').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'\\]`));
   assert.match(patched, new RegExp(`configPath: '${join(PLUGIN, 'hooks', 'dsh-hooks.json').replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}'`));
   assert.match(patched, /command: '.*\/node'/);
@@ -255,7 +255,7 @@ test('dsh-install patches each profile once, keeps the user\'s entries, and unin
 
   install(home, '--uninstall');
   assert.equal(readFileSync(web, 'utf8'), mine);
-  assert.deepEqual(readdirSync(join(home, 'skills')), ['job-tracker-mine'], 'only skills the installer wrote are removed');
+  assert.deepEqual(readdirSync(join(home, 'skills')), ['laufbahn-mine'], 'only skills the installer wrote are removed');
 });
 
 test('dsh-install leaves a patch file it cannot safely extend alone and prints the block', () => {
@@ -265,7 +265,7 @@ test('dsh-install leaves a patch file it cannot safely extend alone and prints t
   const stdout = install(home, '--profile', 'tui');
   assert.equal(readFileSync(tui, 'utf8'), '[]\n');
   assert.match(stdout, /is not a plain patch list/);
-  assert.match(stdout, /id: job-tracker-hooks/);
+  assert.match(stdout, /id: laufbahn-hooks/);
   assert.equal(basename(dirname(tui)), 'tui');
 });
 

@@ -5,7 +5,7 @@ argument-hint: "[--limit N] [--calibration]"
 
 Run today's job-hunt sweep. Arguments: `$ARGUMENTS`
 
-**If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Record nothing. End the run with one sentence saying so and that `/job-tracker:setup` installs it.
+**If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Record nothing. End the run with one sentence saying so and that `/laufbahn:setup` installs it.
 
 This is the command the weekday scheduled task runs. It runs as a local scheduled task, and the browser may not be connected, so it must complete with **connectors and the tracker only**. A browser or a local folder is a bonus, never a requirement.
 
@@ -16,7 +16,7 @@ This is the command the weekday scheduled task runs. It runs as a local schedule
 - Every role you touch gets a tracker event (`upsert_role`, `transition` or `record`) with a reason; pass the `run_id` on events. A stop hook refuses to end this session until that is true and `render_report` was called (Claude Code and DeepSeek Harness: `Stop`; Hermes: a post-turn check that sends you back with a `[job-hunt]` note).
 - Hooks block send tools, unlinted drafts, submit clicks and similar. If a hook denies an action, report the denial in the run summary. Do not retry it another way.
 - Keep the final output short: the report, then nothing else.
-- **Commands the user types carry the real role id.** Write them filled in, next to the company and title, e.g. "Acme, Senior Engineer: `/job-tracker:apply 42`". Never show `<id>` or `<role_id>` placeholders: the user does not know the ids.
+- **Commands the user types carry the real role id.** Write them filled in, next to the company and title, e.g. "Acme, Senior Engineer: `/laufbahn:apply 42`". Never show `<id>` or `<role_id>` placeholders: the user does not know the ids.
 
 ## Arguments
 
@@ -25,7 +25,7 @@ This is the command the weekday scheduled task runs. It runs as a local schedule
 
 ## Procedure
 
-**Agents.** "Launch a `sourcer`/`scorer`/`auditor` agent" means: on Claude Code, the plugin subagent of that name; on Hermes, `delegate_task` with the goal as stated and `context` set to the full text of skill `job-tracker:agent-<name>` (load it with `skill_view`) plus the inputs listed here; on DeepSeek Harness, the `subagent` tool with the goal as stated, the full text of skill `job-tracker:agent-<name>` (load it with the `skill` tool) and the inputs listed here.
+**Agents.** "Launch a `sourcer`/`scorer`/`auditor` agent" means: on Claude Code, the plugin subagent of that name; on Hermes, `delegate_task` with the goal as stated and `context` set to the full text of skill `laufbahn:agent-<name>` (load it with `skill_view`) plus the inputs listed here; on DeepSeek Harness, the `subagent` tool with the goal as stated, the full text of skill `laufbahn:agent-<name>` (load it with the `skill` tool) and the inputs listed here.
 
 1. **Status and capabilities.**
    - Call `setup_status`. If the tracker itself is unreachable, stop and say so: there is nowhere to record work.
@@ -49,12 +49,12 @@ This is the command the weekday scheduled task runs. It runs as a local schedule
    - For a newly scored role, `transition` to `queued` with a reason naming the note, the `run_id`, and `blocked_by: "browser"` if no browser was available this run, else `blocked_by: "user"` for review-first or omitted for automatic mode. For an already queued role, attach a note with `record` without changing its status or question. Why: preparing a note must not erase the question that is holding an application back.
    - Roles with a single blocking question (scorers already queued them with `question` and `blocked_by: "user"`) get their note too, so the user can decide and apply in one go.
    - A scored role whose `score_notes` hold `Confirm yourself:` items (hour limits, enrolment, internship pay, student work permit) is queued for review even when `autonomy.auto_apply` is `true`: put the first item in `question` with `blocked_by: "user"`. The notes are for the user to settle with the employer, the university or the Ausländerbehörde; the sweep never answers them.
-   - If `autonomy.auto_apply === true`, a browser is available, and the role has no unresolved question, follow the `/job-tracker:apply` procedure for that role, using this sweep's `run_id` rather than starting or finishing a separate run. Re-read the preference before every submission. Follow `fill-form`, read back all values, record the automatic-choice reason, and capture confirmation. Never change the preference yourself.
+   - If `autonomy.auto_apply === true`, a browser is available, and the role has no unresolved question, follow the `/laufbahn:apply` procedure for that role, using this sweep's `run_id` rather than starting or finishing a separate run. Re-read the preference before every submission. Follow `fill-form`, read back all values, record the automatic-choice reason, and capture confirmation. Never change the preference yourself.
    - Otherwise leave the application queued for review. Forms needing the user (consent, personal data, account login, visible CAPTCHA, or missing answers) stay queued with the question. Do not clear an existing question just to apply. Why: automatic mode does not answer questions or grant other permissions.
 
 **Asking the user** anywhere in this plugin means: `transition` (or `record`, if already queued) to `queued` with `question` = the single blocking question and the quotes in `evidence`. `render_report` lists these under **Needs you**.
 
-7. **Report.** Call `render_report` with today's date (YYYY-MM-DD), the `run_id`, and a `headline` (one or two sentences: the outcome, e.g. "3 roles queued, 1 interview to book, 2 rejections"). Check that it states which capabilities were missing and what was queued or skipped because of it. If it does not, add one line under Needs you. End the report with the question `Open the job board now? Reply yes, or run /job-tracker:board later.` as its final line. Never open the board yourself or call `open_board` with `open: true` during the sweep. Why: the run is often unattended, and opening a browser window nobody asked for, or a link that expires after 30 idle minutes, is wrong. If the user replies yes in this session, follow `/job-tracker:board` (call `open_board` with `open: true`). Why: their reply is the explicit request `open: true` requires. On no, or no reply, do nothing.
+7. **Report.** Call `render_report` with today's date (YYYY-MM-DD), the `run_id`, and a `headline` (one or two sentences: the outcome, e.g. "3 roles queued, 1 interview to book, 2 rejections"). Check that it states which capabilities were missing and what was queued or skipped because of it. If it does not, add one line under Needs you. End the report with the question `Open the job board now? Reply yes, or run /laufbahn:board later.` as its final line. Never open the board yourself or call `open_board` with `open: true` during the sweep. Why: the run is often unattended, and opening a browser window nobody asked for, or a link that expires after 30 idle minutes, is wrong. If the user replies yes in this session, follow `/laufbahn:board` (call `open_board` with `open: true`). Why: their reply is the explicit request `open: true` requires. On no, or no reply, do nothing.
 
    Under **Needs you** the report has **New or changed today** (queued roles that entered the queue or whose question or blocker changed in this run, in detail), **Other open actions** (unresolved questions, unconfirmed drafts, bookings to confirm and audit failures, whatever their age), and **Still waiting (N)** (queued roles unchanged in this run, with the 14+ day ones named). Keep that split when you edit the report: do not move a waiting role up, describe it as researched or scored today, or add an event to an old role to make it appear. Why: most of the queue is carried over from earlier days, and listing it in full every day buries what is new and makes the old decisions look fresh. The result also has `queue_activity`; pass it to the auditor.
 

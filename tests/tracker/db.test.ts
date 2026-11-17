@@ -1,8 +1,8 @@
 // Database layer: locking, migrations and file permissions.
 
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -543,13 +543,13 @@ test('the newer-version error names the database file', () => {
 
 const mode = (p: string) => statSync(p).mode & 0o777;
 const withHome = (home: string, fn: () => void) => {
-  const before = { home: process.env.JOB_TRACKER_HOME, db: process.env.JOB_TRACKER_DB };
-  process.env.JOB_TRACKER_HOME = home;
-  delete process.env.JOB_TRACKER_DB;
+  const before = { home: process.env.LAUFBAHN_HOME, db: process.env.LAUFBAHN_DB };
+  process.env.LAUFBAHN_HOME = home;
+  delete process.env.LAUFBAHN_DB;
   try {
     fn();
   } finally {
-    for (const [key, value] of [['JOB_TRACKER_HOME', before.home], ['JOB_TRACKER_DB', before.db]] as const) {
+    for (const [key, value] of [['LAUFBAHN_HOME', before.home], ['LAUFBAHN_DB', before.db]] as const) {
       if (value === undefined) delete process.env[key];
       else process.env[key] = value;
     }
@@ -745,4 +745,26 @@ test('migration 11 leaves a damaged _decisions value alone instead of failing th
   } finally {
     db.close();
   }
+});
+
+test('an unmoved ~/.job-tracker is used, with a note on stderr, until ~/.laufbahn exists', () => {
+  const fakeHome = mkdtempSync(join(tmpdir(), 'jh-legacy-'));
+  const homeUrl = new URL('../../plugin/servers/tracker/src/home.ts', import.meta.url).href;
+  const run = (env: Record<string, string> = {}) => {
+    const r = spawnSync(process.execPath, ['--no-warnings', '--input-type=module', '-e', `import { laufbahnHome } from ${JSON.stringify(homeUrl)}; process.stdout.write(laufbahnHome());`], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, HOME: fakeHome, USERPROFILE: fakeHome, ...env },
+    });
+    return { out: r.stdout, err: r.stderr };
+  };
+  assert.equal(run().out, join(fakeHome, '.laufbahn'), 'fresh install');
+  mkdirSync(join(fakeHome, '.job-tracker'));
+  const legacy = run();
+  assert.equal(legacy.out, join(fakeHome, '.job-tracker'));
+  assert.match(legacy.err, /mv ".*\.job-tracker" ".*\.laufbahn"/);
+  assert.ok(existsSync(join(fakeHome, '.job-tracker')) && !existsSync(join(fakeHome, '.laufbahn')), 'nothing is moved');
+  assert.equal(run({ JOB_TRACKER_HOME: '/x/old' }).out, '/x/old', 'old variable name still works');
+  assert.equal(run({ JOB_TRACKER_HOME: '/x/old', LAUFBAHN_HOME: '/x/new' }).out, '/x/new');
+  mkdirSync(join(fakeHome, '.laufbahn'));
+  assert.deepEqual(run(), { out: join(fakeHome, '.laufbahn'), err: '' });
 });

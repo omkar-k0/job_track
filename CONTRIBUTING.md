@@ -1,7 +1,7 @@
 # Contributing
 
 Thanks for helping. This is a small project, so the process is light. Use the issue tracker at
-[omkar-k0/job_track](https://github.com/omkar-k0/job_track/issues).
+[omkar-k0/laufbahn](https://github.com/omkar-k0/laufbahn/issues).
 
 ## Before you start
 

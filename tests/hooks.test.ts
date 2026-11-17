@@ -27,8 +27,8 @@ setOutput((o) => outputs.push(o));
 beforeEach(() => {
   outputs = [];
   home = mkdtempSync(join(tmpdir(), 'jh-hooks-'));
-  process.env.JOB_TRACKER_HOME = home;
-  delete process.env.JOB_TRACKER_DB;
+  process.env.LAUFBAHN_HOME = home;
+  delete process.env.LAUFBAHN_DB;
 });
 
 const session = () => `s${++n}`;
@@ -56,7 +56,7 @@ function trackerWithRoles() {
 }
 
 const CHROME = 'mcp__claude-in-chrome__';
-const TRACKER = 'mcp__plugin_job-tracker_tracker__';
+const TRACKER = 'mcp__plugin_laufbahn_tracker__';
 const markSession = async (sid: string) => preTool({ session_id: sid, tool_name: `${TRACKER}open_items`, tool_input: {} });
 const applicationPage = (url: string, tabId = 1, extra = '') => transcript([
   [`${CHROME}navigate`, { url, tabId }, `url: ${url}\ntabId: ${tabId}`],
@@ -114,7 +114,7 @@ test('AC7: a submit click needs the user approval and a verified role', async ()
   assert.match(reason(), /needs the user's approval/);
 
   outputs = [];
-  await prompt({ session_id: sid, prompt: `/job-tracker:approve ${unverified.id}`, transcript_path: otherPage });
+  await prompt({ session_id: sid, prompt: `/laufbahn:approve ${unverified.id}`, transcript_path: otherPage });
   assert.match(outputs[0]?.hookSpecificOutput?.additionalContext ?? '', /gate_check fails: Role not verified/);
   outputs = [];
   await click(sid, otherPage, 2);
@@ -123,7 +123,7 @@ test('AC7: a submit click needs the user approval and a verified role', async ()
   const scopedSid = session();
   await markSession(scopedSid);
   outputs = [];
-  await prompt({ session_id: scopedSid, prompt: `/job-tracker:approve ${verified.id}`, transcript_path: verifiedPage });
+  await prompt({ session_id: scopedSid, prompt: `/laufbahn:approve ${verified.id}`, transcript_path: verifiedPage });
   assert.match(outputs[0]?.hookSpecificOutput?.additionalContext ?? '', /gate_check passed/);
   outputs = [];
   await click(scopedSid, verifiedOtherTab, 2);
@@ -148,7 +148,7 @@ test('AC7: scripted submits are gated too; the model cannot approve itself', asy
   assert.match(reason(), /needs the user's approval/);
   // A tool call that mentions approve does not create an approval; only a user prompt does.
   outputs = [];
-  await preTool({ session_id: sid, tool_name: `${TRACKER}record`, tool_input: { role_id: 2, reason: '/job-tracker:approve 2', actor: 'user' } });
+  await preTool({ session_id: sid, tool_name: `${TRACKER}record`, tool_input: { role_id: 2, reason: '/laufbahn:approve 2', actor: 'user' } });
   await preTool({ session_id: sid, transcript_path: tp, tool_name: `${CHROME}javascript_tool`, tool_input: { tabId: 1, text: "document.querySelector('button[type=submit]').click()" } });
   assert.match(reason(), /needs the user's approval/);
   outputs = [];
@@ -161,18 +161,18 @@ test('approval commands must be the entire user prompt', async () => {
   const sid = session();
   const tp = applicationPage(String(verified.url));
   for (const text of [
-    `Do not run /job-tracker:approve ${verified.id} yet.`,
-    `The command is "/job-tracker:approve ${verified.id}".`,
-    `\`/job-tracker:approve ${verified.id}\``,
-    `/job-tracker:approve ${verified.id} please`,
-    `Do not run /job-tracker:allow-consent ${verified.id}.`,
+    `Do not run /laufbahn:approve ${verified.id} yet.`,
+    `The command is "/laufbahn:approve ${verified.id}".`,
+    `\`/laufbahn:approve ${verified.id}\``,
+    `/laufbahn:approve ${verified.id} please`,
+    `Do not run /laufbahn:allow-consent ${verified.id}.`,
   ]) {
     outputs = [];
     await prompt({ session_id: sid, prompt: text, transcript_path: tp });
   }
   assert.equal(loadSession(sid).approvals.length, 0);
   assert.equal(loadSession(sid).consents.length, 0);
-  await prompt({ session_id: sid, prompt: `/job-tracker:approve #${verified.id}`, transcript_path: tp });
+  await prompt({ session_id: sid, prompt: `/laufbahn:approve #${verified.id}`, transcript_path: tp });
   assert.equal(loadSession(sid).approvals.length, 1, 'standalone approval is accepted');
 });
 
@@ -226,7 +226,7 @@ async function approveAndSubmit(role_id: number, url: string) {
   await markSession(sid);
   const tp = applicationPage(url);
   outputs = [];
-  await prompt({ session_id: sid, prompt: `/job-tracker:approve ${role_id}`, transcript_path: tp });
+  await prompt({ session_id: sid, prompt: `/laufbahn:approve ${role_id}`, transcript_path: tp });
   const note = outputs[0]?.hookSpecificOutput?.additionalContext ?? '';
   outputs = [];
   await preTool({ session_id: sid, transcript_path: tp, tool_name: `${CHROME}computer`, tool_input: { action: 'left_click', ref: 'ref_45', tabId: 1 } });
@@ -266,7 +266,7 @@ test('the submit gate fails closed with a clear problem on a database the tracke
   const sid = session();
   await markSession(sid);
   const tp = applicationPage(url);
-  await prompt({ session_id: sid, prompt: `/job-tracker:approve ${verified.id}`, transcript_path: tp });
+  await prompt({ session_id: sid, prompt: `/laufbahn:approve ${verified.id}`, transcript_path: tp });
   assert.match(outputs[0]?.hookSpecificOutput?.additionalContext ?? '', /gate_check passed/);
   // The database is swapped for an older one (another install) before the submit.
   for (const f of ['tracker.db', 'tracker.db-wal', 'tracker.db-shm']) rmSync(join(home, f), { force: true });
@@ -280,7 +280,7 @@ test('the submit gate fails closed with a clear problem on a database the tracke
   assert.equal(raw.prepare('PRAGMA user_version').get()?.user_version, 2);
   raw.close();
   outputs = [];
-  await prompt({ session_id: session(), prompt: `/job-tracker:approve ${verified.id}`, transcript_path: tp });
+  await prompt({ session_id: session(), prompt: `/laufbahn:approve ${verified.id}`, transcript_path: tp });
   assert.match(outputs[0]?.hookSpecificOutput?.additionalContext ?? '', /was not recorded: The tracker database is at schema v2; start the tracker once to upgrade it\./);
 });
 
@@ -292,7 +292,7 @@ test('a database one schema step behind also blocks with the upgrade message', a
   raw.close();
   const sid = session();
   await markSession(sid);
-  await prompt({ session_id: sid, prompt: `/job-tracker:approve ${verified.id}`, transcript_path: applicationPage(String(verified.url)) });
+  await prompt({ session_id: sid, prompt: `/laufbahn:approve ${verified.id}`, transcript_path: applicationPage(String(verified.url)) });
   assert.match(outputs[0]?.hookSpecificOutput?.additionalContext ?? '', /was not recorded: The tracker database is at schema v7; start the tracker once to upgrade it\./);
 });
 
@@ -313,7 +313,7 @@ test('personal-data fields and consent boxes are blocked', async () => {
   assert.ok(await call('computer', { action: 'left_click', ref: 'ref_3', tabId: 1 }));
   assert.equal(await call('form_input', { ref: 'ref_3', value: false, tabId: 1 }), undefined, 'unticking is the privacy-preserving option');
   assert.equal(await call('form_input', { ref: 'ref_4', value: 'https://linkedin.com/in/x', tabId: 1 }), undefined);
-  await prompt({ session_id: sid, prompt: `/job-tracker:allow-consent ${verified.id}`, transcript_path: tp });
+  await prompt({ session_id: sid, prompt: `/laufbahn:allow-consent ${verified.id}`, transcript_path: tp });
   assert.ok(await call('form_input', { ref: 'ref_3', value: true, tabId: 2 }, other), 'consent for one role cannot be used on another page');
   assert.equal(await call('form_input', { ref: 'ref_3', value: true, tabId: 1 }), undefined, 'user allowed consent on this role and page');
 });
@@ -447,7 +447,7 @@ test('AC9: verify_artifact is denied without a real get_draft/list_drafts read-b
 
 test('Stop: a sweep cannot finish with unrecorded roles or no report', async () => {
   const sid = session();
-  await prompt({ session_id: sid, prompt: '/job-tracker:sweep' });
+  await prompt({ session_id: sid, prompt: '/laufbahn:sweep' });
   const up = (id: number): Call => [`${TRACKER}upsert_role`, { company: 'A', title: 'B' }, JSON.stringify({ role: { id, title: 'B' }, created: true })];
   outputs = [];
   await stop({ session_id: sid, transcript_path: transcript([up(1), up(2), [`${TRACKER}transition`, { role_id: 1, to: 'dropped' }, '{}']]) });
@@ -464,7 +464,7 @@ test('Stop: a sweep cannot finish with unrecorded roles or no report', async () 
 
 test('Stop: an event written through a linked duplicate\'s old id counts for the role upsert_role returned', async () => {
   const sid = session();
-  await prompt({ session_id: sid, prompt: '/job-tracker:sweep' });
+  await prompt({ session_id: sid, prompt: '/laufbahn:sweep' });
   // upsert_role answers with the canonical role 1; the model then moves it through the old id 2, and the tracker
   // answers with the role it moved.
   const up: Call = [`${TRACKER}upsert_role`, { id: 2, title: 'B' }, JSON.stringify({ role: { id: 1, title: 'B' }, created: false })];
@@ -512,7 +512,7 @@ test('the board is off limits to browser tools in every session: moves there cou
 test('on an open board page, browser tools may look but not act', async () => {
   const board = `http://127.0.0.1:54408/#t=${TOKEN}`;
   // The user's own tab, seen in a tab listing rather than opened by the model.
-  const tabs = JSON.stringify({ availableTabs: [{ tabId: 7, title: 'Docs', url: 'https://example.com/' }, { tabId: 9, title: 'Job Tracker board', url: board }] });
+  const tabs = JSON.stringify({ availableTabs: [{ tabId: 7, title: 'Docs', url: 'https://example.com/' }, { tabId: 9, title: 'Laufbahn board', url: board }] });
   const tp = transcript([[`${CHROME}tabs_context_mcp`, {}, tabs], [`${CHROME}read_page`, { tabId: 9 }, 'button "Skip" [ref_4]']]);
   const call = async (short: string, input: Record<string, unknown>, path = tp) => {
     outputs = [];
@@ -556,7 +556,7 @@ test('session files are owner-only',{ skip: process.platform === 'win32' }, () =
 test('a deny is still emitted when the session cannot be saved', async () => {
   const notDir = join(home, 'a-file');
   writeFileSync(notDir, '');
-  process.env.JOB_TRACKER_HOME = notDir; // sessions/ cannot be created under a regular file
+  process.env.LAUFBAHN_HOME = notDir; // sessions/ cannot be created under a regular file
   await preTool({ session_id: session(), tool_name: 'mcp__claude_ai_Gmail__send_message', tool_input: { to: 'x@example.com', body: 'hi' } });
   assert.match(reason(), /Sending is blocked/);
 });
@@ -573,7 +573,7 @@ test('a leftover session tmp file does not keep its old mode', { skip: process.p
 
 test('Stop fails open when its reminder counter cannot be saved', { skip: process.platform === 'win32' }, async () => {
   const sid = session();
-  await prompt({ session_id: sid, prompt: '/job-tracker:sweep' });
+  await prompt({ session_id: sid, prompt: '/laufbahn:sweep' });
   assert.equal(outputs.length, 0);
   mkdirSync(join(home, 'sessions', `${sid}.json.tmp`)); // saveSession cannot clear this, so it throws
   // Without a saved counter the reminder cap cannot work, so blocking would loop forever.
@@ -685,18 +685,18 @@ test('auto-apply fails closed for malformed settings and a missing tracker', asy
     assert.ok(denied(), 'invalid configuration does not grant automatic approval');
   }
   t.db.close();
-  process.env.JOB_TRACKER_DB = join(home, 'missing.db');
+  process.env.LAUFBAHN_DB = join(home, 'missing.db');
   outputs = [];
   await preTool({ session_id: sid, transcript_path: applicationPage(String(verified.url)), tool_name: `${CHROME}computer`, tool_input: { action: 'left_click', ref: 'ref_45', tabId: 1 } });
   assert.ok(denied(), 'missing tracker does not grant automatic approval');
 });
 
 test('AC9: verify_artifact is still read-back checked when the session file cannot be written', async () => {
-  // JOB_TRACKER_HOME under a regular file: every mkdir fails with ENOTDIR (works as root too, unlike chmod).
+  // LAUFBAHN_HOME under a regular file: every mkdir fails with ENOTDIR (works as root too, unlike chmod).
   const fake = transcript([[`${CHROME}navigate`, { url: 'https://mail.google.com/' }, 'opened']]);
   const blocker = join(home, 'not-a-dir');
   writeFileSync(blocker, '');
-  process.env.JOB_TRACKER_HOME = join(blocker, 'home');
+  process.env.LAUFBAHN_HOME = join(blocker, 'home');
   await preTool({ session_id: session(), transcript_path: fake, tool_name: `${TRACKER}verify_artifact`, tool_input: { artifact_id: 1, readback: '{"id":"r-55512345"}' } });
   assert.match(reason(), /verify_artifact needs a real read-back/);
 });

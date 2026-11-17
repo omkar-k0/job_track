@@ -5,7 +5,7 @@ argument-hint: "<company> [--lang de|en]"
 
 Prepare the user for an interview at `$ARGUMENTS`.
 
-**If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Tell the user that in one sentence, offer to run `/job-tracker:setup` (it installs Node.js), and stop.
+**If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Tell the user that in one sentence, offer to run `/laufbahn:setup` (it installs Node.js), and stop.
 
 Load the `interview-prep` skill and follow it. It switches to early-career mode (projects, thesis and coursework as stories, typical Werkstudent and internship questions) for student and junior roles, and writes the sheet in German when the interview is in German or `--lang de` is given (`--lang en` forces English).
 

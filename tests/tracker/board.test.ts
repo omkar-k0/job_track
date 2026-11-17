@@ -1,4 +1,4 @@
-// The real board process: state file, health, idle exit. Uses a scratch directory, never ~/.job-tracker.
+// The real board process: state file, health, idle exit. Uses a scratch directory, never ~/.laufbahn.
 
 import assert from 'node:assert/strict';
 import { type ChildProcess, spawn } from 'node:child_process';
@@ -26,7 +26,7 @@ async function waitFor<T>(read: () => T | null, ms: number, what: () => string =
 async function withBoard(args: (db: string) => string[], body: (b: { dir: string; db: string; file: string; child: ChildProcess; stdout: () => string; stderr: () => string; exited: Promise<number | null> }) => Promise<void>): Promise<void> {
   const dir = mkdtempSync(join(tmpdir(), 'jh-board-'));
   const db = join(dir, 'tracker.db');
-  const child = spawn(process.execPath, ['--no-warnings', ENTRY, ...args(db)], { env: { ...process.env, JOB_TRACKER_HOME: dir }, stdio: ['ignore', 'pipe', 'pipe'] });
+  const child = spawn(process.execPath, ['--no-warnings', ENTRY, ...args(db)], { env: { ...process.env, LAUFBAHN_HOME: dir }, stdio: ['ignore', 'pipe', 'pipe'] });
   let out = '';
   let err = '';
   child.stdout.on('data', (c) => {

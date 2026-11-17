@@ -1,0 +1,18 @@
+/* The web demo's banner (dev/build-web.mjs). Uses the board's own tokens, so it follows light and dark mode
+   and the theme toggle without colours of its own. */
+.demo-banner {
+  flex: none;
+  margin: 0 -32px 12px;
+  padding: 6px 32px;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--color-accent-subtle);
+  color: var(--text-ink);
+  font-family: var(--font-serif);
+  font-size: var(--text-base);
+  line-height: 1.4;
+  text-align: center;
+}
+.demo-banner a { font-weight: 700; white-space: nowrap; }
+@media (max-width: 700px) {
+  .demo-banner { margin: 0 -16px 8px; padding: 6px 16px; text-align: left; }
+}

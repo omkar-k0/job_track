@@ -1,8 +1,8 @@
-[IMPORTANT: The user has invoked the "job-tracker:approve" skill, indicating they want you to follow its instructions. The full skill content is loaded below.]
+[IMPORTANT: The user has invoked the "laufbahn:approve" skill, indicating they want you to follow its instructions. The full skill content is loaded below.]
 
-The user typed `/job-tracker:approve $ARGUMENTS`.
+The user typed `/laufbahn:approve $ARGUMENTS`.
 
-A prompt hook has already processed this message. Example from the docs: /job-tracker:approve 999
+A prompt hook has already processed this message. Example from the docs: /laufbahn:approve 999
 
 [Skill directory: /x/commands]
 

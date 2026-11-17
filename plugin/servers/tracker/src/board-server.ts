@@ -93,7 +93,7 @@ export function createBoardServer({ tracker, token, idleMs, onIdle, log = () => 
       res.writeHead(200, { ...HEADERS, 'Content-Type': file.type });
       res.end(file.body);
     } else if (!path.startsWith('/api/')) send(res, 404, { error: 'Not found.' });
-    else if (!authorized(req.headers.authorization)) send(res, 401, { error: 'Missing or wrong token. Run /job-tracker:board in Claude for a fresh link.' });
+    else if (!authorized(req.headers.authorization)) send(res, 401, { error: 'Missing or wrong token. Run /laufbahn:board in Claude for a fresh link.' });
     else if (!fetchSiteOk(req)) send(res, 403, { error: 'The board answers only its own page.' });
     else if (req.method !== 'GET' && !fromPage(req, host)) send(res, 403, { error: 'Changes are accepted only from the board page in your browser.' });
     else {

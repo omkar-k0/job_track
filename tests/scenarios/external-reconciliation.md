@@ -12,7 +12,7 @@ the prompt.
 ## Harness
 
 - A scratch tracker only: `npm run tracker -- --db /tmp/c4-eval.db`. Never the real database, and never the
-  installed plugin's `mcp__plugin_job-tracker_tracker__*` tools.
+  installed plugin's `mcp__plugin_laufbahn_tracker__*` tools.
 - Fake connectors only: a fake mailbox (two accounts), a fake LinkedIn inbox, a fake calendar per account, and a
   static fake JobCopilot board. No real inbox, calendar, board or employer site. Nothing is sent, deleted,
   submitted or applied; the board is read only.

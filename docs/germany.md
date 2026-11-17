@@ -1,6 +1,6 @@
 # Germany and the EU: working students, internships and junior roles
 
-This guide covers what the plugin does differently for the German and EU early-career market: Werkstudent, internship and thesis roles, German-language postings and applications, and German job boards. Nothing in it is specific to one person: everything is driven by the settings `/job-tracker:setup` asks for. General setup is in [usage.md](usage.md).
+This guide covers what the plugin does differently for the German and EU early-career market: Werkstudent, internship and thesis roles, German-language postings and applications, and German job boards. Nothing in it is specific to one person: everything is driven by the settings `/laufbahn:setup` asks for. General setup is in [usage.md](usage.md).
 
 The plugin lists questions for you to confirm. It never gives legal, tax, insurance or immigration advice.
 
@@ -73,7 +73,7 @@ The plugin reads the whole posting for language requirements, not only the title
 | Muttersprache, native | C2 or native |
 | von Vorteil, wünschenswert, nice to have | Soft: moves the score a little, never drops |
 
-Against your `filters.languages`: a language you do not list, an explicit level above yours, or wording two or more levels above yours drops the role with the quote. Wording one level above yours, or an unqualified "Deutschkenntnisse", becomes one question to you instead of a drop. A German posting with no stated requirement is flagged if your German is below B2. The mapping is a starting point and the quoted words are always shown so you can overrule it with `/job-tracker:correct`.
+Against your `filters.languages`: a language you do not list, an explicit level above yours, or wording two or more levels above yours drops the role with the quote. Wording one level above yours, or an unqualified "Deutschkenntnisse", becomes one question to you instead of a drop. A German posting with no stated requirement is flagged if your German is below B2. The mapping is a starting point and the quoted words are always shown so you can overrule it with `/laufbahn:correct`.
 
 ## Applications in German
 
@@ -81,11 +81,11 @@ Against your `filters.languages`: a language you do not list, an explicit level 
 - **Anschreiben.** One page, formal Sie, a Betreff line that mirrors the posting's title and reference number, no "Sehr geehrte Damen und Herren" when a named contact exists, no guessing of gender from a first name ("Guten Tag Alex Kim," instead), "Mit freundlichen Grüßen", and an Anlagen line only for files that will really be attached. The PDF layout follows DIN 5008 approximately. Earliest start date and weekly hours go in the last paragraph; a pay expectation only when the posting asks for one.
 - **Lebenslauf.** The plugin does not edit your CV. If you ask, it gives notes on the usual German layout. A photo, date of birth, nationality and marital status are customary on some German CVs and required on none; they are personal data, so the plugin never adds them and never fills them in a form.
 - **Forms.** It fills Eintrittstermin, Wochenstunden, Studiengang, Gehaltsvorstellung (in the unit the field names) and the CV upload. It hands over Anrede and Geschlecht, Geburtsdatum, Staatsangehörigkeit, Familienstand, Konfession, Schwerbehinderung, Steuer-ID, Matrikelnummer and the photo. The Immatrikulationsbescheinigung and Zeugnisse are your files: the plugin does not store them, so a required upload slot is left for you and the role is queued with that question.
-- **Consent and submit.** Datenschutz and Einwilligung boxes stay unticked unless you type `/job-tracker:allow-consent <role-id>`. Buttons such as "Bewerbung absenden" and "Jetzt bewerben" are treated as submit buttons: nothing is submitted without your saved auto-apply choice or your `/job-tracker:approve`.
+- **Consent and submit.** Datenschutz and Einwilligung boxes stay unticked unless you type `/laufbahn:allow-consent <role-id>`. Buttons such as "Bewerbung absenden" and "Jetzt bewerben" are treated as submit buttons: nothing is submitted without your saved auto-apply choice or your `/laufbahn:approve`.
 
 ## Interview prep
 
-`/job-tracker:prep` switches to early-career mode for student and junior roles: stories come from projects, a thesis, coursework or a short Werkstudent job, in your words, and are never inflated. The sheet adds the usual working-student questions (hours and timetable, start date, study progress) in English and German. When the interview is German it is written in German, after checking your level, with your own stories translated rather than embellished. Items from the role's "confirm yourself" notes appear as questions to ask.
+`/laufbahn:prep` switches to early-career mode for student and junior roles: stories come from projects, a thesis, coursework or a short Werkstudent job, in your words, and are never inflated. The sheet adds the usual working-student questions (hours and timetable, start date, study progress) in English and German. When the interview is German it is written in German, after checking your level, with your own stories translated rather than embellished. Items from the role's "confirm yourself" notes appear as questions to ask.
 
 ## What the plugin will not decide
 

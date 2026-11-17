@@ -12,10 +12,10 @@ NODE="$(command -v node || true)"
   || { echo "node >= 22.18 required (node:sqlite, TypeScript type stripping)" >&2; exit 1; }
 
 mkdir -p "$HERMES_DIR/plugins"
-# The plugin was called job-hunt before 0.2.0 and j-hunt before 0.3.0; drop the old links so it does not load twice.
-for old in job-hunt j-hunt; do if [ -L "$HERMES_DIR/plugins/$old" ]; then rm "$HERMES_DIR/plugins/$old"; fi; done
-ln -sfn "$ROOT" "$HERMES_DIR/plugins/job-tracker"
-hermes plugins enable job-tracker
+# The plugin was called job-hunt before 0.2.0, j-hunt before 0.3.0 and job-tracker before it was renamed Laufbahn; drop the old links so it does not load twice.
+for old in job-hunt j-hunt job-tracker; do if [ -L "$HERMES_DIR/plugins/$old" ]; then rm "$HERMES_DIR/plugins/$old"; fi; done
+ln -sfn "$ROOT" "$HERMES_DIR/plugins/laufbahn"
+hermes plugins enable laufbahn
 
 TRACKER="$ROOT/servers/tracker/src/index.ts"
 # `hermes mcp add` asks "Enable all N tools? [Y/n/select]" and cancels (exit 0) on end of input, so answer Y:
@@ -25,4 +25,4 @@ hermes config get mcp_servers.job_hunt_tracker.args 2>/dev/null | grep -qF -- "$
   || { echo "hermes mcp add did not save the job_hunt_tracker server; run it again by hand and answer Y:" >&2
        echo "  hermes mcp add job_hunt_tracker --command \"$NODE\" --args --no-warnings \"$TRACKER\"" >&2; exit 1; }
 
-echo "Done. Restart Hermes, then run /job-tracker:setup"
+echo "Done. Restart Hermes, then run /laufbahn:setup"

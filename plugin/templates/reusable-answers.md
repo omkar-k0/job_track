@@ -21,7 +21,7 @@ the common ones.
 - Photos (Bewerbungsfoto)
 - Passwords, account creation, CAPTCHAs
 - Consent checkboxes (recording, marketing, talent pool, data sharing; Einwilligung, Datenschutz, Talentpool, Newsletter), unless you type
-  `/job-tracker:allow-consent <role_id>` for that role
+  `/laufbahn:allow-consent <role_id>` for that role
 
 ## Standard fields
 

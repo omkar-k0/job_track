@@ -1,9 +1,9 @@
 // Starts Claude Code on the released plugin with real data, or on this worktree's plugin with a copy of it.
 // Maintainer tool; not shipped.
 //
-//   npm run dev     copy ~/.job-tracker/tracker.db into ~/.job-tracker-dev, refresh the marketplace, then start
+//   npm run dev     copy ~/.laufbahn/tracker.db into ~/.laufbahn-dev, refresh the marketplace, then start
 //                   Claude Code with this worktree's plugin/ on the copy (the released plugin turned off)
-//   npm run prod    back up ~/.job-tracker/tracker.db, update the released plugin, then start Claude Code on it
+//   npm run prod    back up ~/.laufbahn/tracker.db, update the released plugin, then start Claude Code on it
 //
 // Arguments after `--` go to claude, e.g. `npm run dev -- --resume`.
 //
@@ -19,10 +19,12 @@ import { fileURLToPath } from 'node:url';
 import { secureDir, secureFile } from '../plugin/servers/tracker/src/fsperm.ts';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..');
-const PLUGIN_ID = 'job-tracker@job_track';
-const MARKETPLACE = 'job_track';
-const PROD_HOME = join(homedir(), '.job-tracker');
-const DEV_HOME = join(homedir(), '.job-tracker-dev');
+const PLUGIN_ID = 'laufbahn@laufbahn';
+const MARKETPLACE = 'laufbahn';
+// Same fallback as the plugin (servers/tracker/src/home.ts): an unmoved ~/.job-tracker is still the real data.
+const LEGACY_HOME = join(homedir(), '.job-tracker');
+const PROD_HOME = !existsSync(join(homedir(), '.laufbahn')) && existsSync(LEGACY_HOME) ? LEGACY_HOME : join(homedir(), '.laufbahn');
+const DEV_HOME = join(homedir(), '.laufbahn-dev');
 const PROD_DB = join(PROD_HOME, 'tracker.db');
 
 // SQLite's backup API, not a file copy: production sessions may have the DB open with an unflushed WAL.
@@ -50,11 +52,10 @@ function startClaude(args: string[], env: NodeJS.ProcessEnv): never {
   process.exit(r.status ?? 1);
 }
 
-// A JOB_TRACKER_* variable left in the shell would point either mode at the wrong folder.
+// A LAUFBAHN_* (or old JOB_TRACKER_*) variable left in the shell would point either mode at the wrong folder.
 function cleanEnv(): NodeJS.ProcessEnv {
   const env = { ...process.env };
-  delete env.JOB_TRACKER_HOME;
-  delete env.JOB_TRACKER_DB;
+  for (const name of ['LAUFBAHN_HOME', 'LAUFBAHN_DB', 'JOB_TRACKER_HOME', 'JOB_TRACKER_DB']) delete env[name];
   return env;
 }
 
@@ -64,9 +65,9 @@ async function dev(passthrough: string[]): Promise<void> {
   await copyDb(PROD_DB, to);
   process.stderr.write(`[session] copied ${PROD_DB} to ${to}\n`);
   claudeCli(['plugin', 'marketplace', 'update', MARKETPLACE]);
-  // Without the override both copies load as job-tracker and every hook runs twice, against different folders.
+  // Without the override both copies load as laufbahn and every hook runs twice, against different folders.
   const settings = JSON.stringify({ enabledPlugins: { [PLUGIN_ID]: false } });
-  startClaude(['--plugin-dir', join(REPO, 'plugin'), '--settings', settings, ...passthrough], { ...cleanEnv(), JOB_TRACKER_HOME: DEV_HOME });
+  startClaude(['--plugin-dir', join(REPO, 'plugin'), '--settings', settings, ...passthrough], { ...cleanEnv(), LAUFBAHN_HOME: DEV_HOME });
 }
 
 async function prod(passthrough: string[]): Promise<void> {

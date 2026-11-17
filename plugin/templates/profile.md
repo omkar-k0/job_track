@@ -81,4 +81,4 @@ Delete this section if you have only jobs. The Tools and skills line is required
 
 ## Facts confirmed by the user
 
-<!-- Corrections from /job-tracker:correct land here, with the date. E.g. "Used <technology> at <Company> (confirmed <date>)." -->
+<!-- Corrections from /laufbahn:correct land here, with the date. E.g. "Used <technology> at <Company> (confirmed <date>)." -->

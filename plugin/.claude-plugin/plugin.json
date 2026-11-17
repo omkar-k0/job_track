@@ -1,15 +1,15 @@
 {
-  "name": "job-tracker",
+  "name": "laufbahn",
   "version": "0.6.0",
-  "displayName": "Job Tracker",
+  "displayName": "Laufbahn",
   "description": "A disciplined job search: daily sourcing against hard filters, verification on the employer's own posting, dedupe against everything you have touched, tailored applications submitted only with your approval, and one short daily report. Drafts only; never sends.",
   "author": { "name": "omkar" },
-  "homepage": "https://github.com/omkar-k0/job_track",
-  "privacyPolicyUrl": "https://github.com/omkar-k0/job_track/blob/main/PRIVACY.md",
-  "documentationUrl": "https://github.com/omkar-k0/job_track/blob/main/README.md",
-  "supportUrl": "https://github.com/omkar-k0/job_track/issues",
+  "homepage": "https://github.com/omkar-k0/laufbahn",
+  "privacyPolicyUrl": "https://github.com/omkar-k0/laufbahn/blob/main/PRIVACY.md",
+  "documentationUrl": "https://github.com/omkar-k0/laufbahn/blob/main/README.md",
+  "supportUrl": "https://github.com/omkar-k0/laufbahn/issues",
   "icon": "./.claude-plugin/icon.png",
-  "repository": "https://github.com/omkar-k0/job_track",
+  "repository": "https://github.com/omkar-k0/laufbahn",
   "license": "MIT",
   "keywords": ["jobs", "job-search", "applications", "tracker", "career"]
 }

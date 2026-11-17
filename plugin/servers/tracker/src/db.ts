@@ -1,18 +1,16 @@
 import { mkdirSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { secureDir, secureFile } from './fsperm.ts';
+import { env, laufbahnHome } from './home.ts';
 import { urlIdentity } from './posting.ts';
 import { isValidTimeZone, toUtcIso } from './time.ts';
 import { isRecord } from './util.ts';
 
-export function jobTrackerHome(): string {
-  return process.env.JOB_TRACKER_HOME || join(homedir(), '.job-tracker');
-}
+export { laufbahnHome };
 
 export function defaultDbPath(): string {
-  return process.env.JOB_TRACKER_DB || join(jobTrackerHome(), 'tracker.db');
+  return env('DB') || join(laufbahnHome(), 'tracker.db');
 }
 
 export const SCHEMA_V1 = `
@@ -325,7 +323,7 @@ export function openDb(path: string = defaultDbPath(), { readOnly = false }: { r
   const onDisk = path !== ':memory:';
   if (onDisk && !readOnly) {
     const dir = dirname(resolve(path));
-    if (dir === resolve(jobTrackerHome())) secureDir(dir);
+    if (dir === resolve(laufbahnHome())) secureDir(dir);
     else mkdirSync(dir, { recursive: true });
   }
   const db = new DatabaseSync(path, readOnly ? { readOnly: true } : {});

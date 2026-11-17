@@ -43,7 +43,7 @@ try {
       await handlers.prompt({ session_id: sid, prompt: typed, transcript_path: stepsPath(sid) });
       if (captured?.hookSpecificOutput?.additionalContext) notes.push(captured.hookSpecificOutput.additionalContext);
       const { skill, args } = unwrapSkillInvocation(typeof p.user_message === 'string' ? p.user_message : '');
-      if (skill?.startsWith('job-tracker:') && args) notes.push(`[job-hunt] In this command, $ARGUMENTS = "${args}".`);
+      if (skill?.startsWith('laufbahn:') && args) notes.push(`[job-hunt] In this command, $ARGUMENTS = "${args}".`);
     }
     const session = loadSession(sid);
     if (session.pending_nudge) {

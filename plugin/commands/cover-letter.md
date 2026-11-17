@@ -5,7 +5,7 @@ argument-hint: "<role-id> [--pdf] [--lang de|en]"
 
 Write a cover letter for the role in `$ARGUMENTS`.
 
-**If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Tell the user that in one sentence, offer to run `/job-tracker:setup` (it installs Node.js), and stop.
+**If the tracker tools are missing** (search for them first if tools are deferred), or a hook error says `node` could not start: Node.js, which the plugin runs on, is missing or too old. Tell the user that in one sentence, offer to run `/laufbahn:setup` (it installs Node.js), and stop.
 
 1. Parse the role id and the optional `--pdf` and `--lang de|en` flags. If the role id is missing, call `open_items` and ask which queued role.
 2. **Pick the language.** `--lang` wins, then `writing.language` when it is `de` or `en`, otherwise the language of the posting (see Language in `write-note`). If the user's level for that language in `filters.languages` is below B2 or missing, ask which language to use before writing.

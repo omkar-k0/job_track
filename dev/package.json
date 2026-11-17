@@ -1,9 +1,9 @@
 {
-  "name": "job-tracker-dev",
+  "name": "laufbahn-dev",
   "private": true,
   "type": "module",
   "license": "MIT",
-  "description": "Development tools for the job-tracker plugin (type-checking and linting). Kept out of the plugin root so Claude Code does not install them for users.",
+  "description": "Development tools for the laufbahn plugin (type-checking and linting). Kept out of the plugin root so Claude Code does not install them for users.",
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@types/node": "^22.18.0",

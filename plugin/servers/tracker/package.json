@@ -1,11 +1,11 @@
 {
-  "name": "job-hunt-tracker",
+  "name": "laufbahn-tracker",
   "version": "0.6.0",
   "description": "Tracker MCP server for the job-hunt plugin. Zero dependencies; needs Node 22.18+ (node:sqlite, and it runs its TypeScript directly).",
   "type": "module",
   "private": true,
   "license": "MIT",
-  "bin": { "job-hunt-tracker": "src/index.ts" },
+  "bin": { "laufbahn-tracker": "src/index.ts" },
   "engines": { "node": ">=22.18" },
   "scripts": {
     "start": "node --no-warnings src/index.ts"

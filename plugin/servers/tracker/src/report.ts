@@ -127,13 +127,13 @@ function needsYou(items: OpenItems, activity: QueueActivity, audit: ReturnType<t
   if (!changedNow.length && !others.length && !activity.waiting.length) return [];
   const numbered = (lines: string[]) => lines.map((n, i) => `${i + 1}. ${n}`);
   const out = ['## Needs you', ''];
-  if (changedNow.length) out.push('### New or changed today', '', ...numbered(changedNow.map((q) => `**${q.company}**, ${q.title} (role ${q.id}): ${ask(q)} To apply: \`/job-tracker:apply ${q.id}\``)), '');
+  if (changedNow.length) out.push('### New or changed today', '', ...numbered(changedNow.map((q) => `**${q.company}**, ${q.title} (role ${q.id}): ${ask(q)} To apply: \`/laufbahn:apply ${q.id}\``)), '');
   if (others.length) out.push('### Other open actions', '', ...numbered(others), '');
   if (activity.waiting.length) {
     const staleIds = new Set(activity.stale_waiting);
     const stale = items.stale_queue.filter((q) => staleIds.has(q.id));
     out.push(`### Still waiting (${activity.waiting.length})`, '');
-    out.push(`${activity.waiting.length} queued role(s) are unchanged in this report, ${stale.length} of them with no activity for 14+ days. Nothing here was researched or decided today. \`/job-tracker:board\` or \`/job-tracker:status\` lists them all.`, '');
+    out.push(`${activity.waiting.length} queued role(s) are unchanged in this report, ${stale.length} of them with no activity for 14+ days. Nothing here was researched or decided today. \`/laufbahn:board\` or \`/laufbahn:status\` lists them all.`, '');
     for (const q of stale) out.push(`- **${q.company}**, ${q.title} (role ${q.id}, 14+ days, last activity ${localDay(q.last_event, tz)}): ${ask(q)}`);
     if (stale.length) out.push('');
   }

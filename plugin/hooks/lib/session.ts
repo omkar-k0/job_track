@@ -2,15 +2,15 @@
 // Approvals are written only by the UserPromptSubmit hook, i.e. only from what the user typed.
 
 import { readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { secureDir, secureFile } from '../../servers/tracker/src/fsperm.ts';
+import { laufbahnHome } from '../../servers/tracker/src/home.ts';
 import type { Approval, SessionState } from './types.ts';
 
 export const APPROVAL_TTL_MS = 2 * 60 * 60 * 1000;
 
 export function home(): string {
-  return process.env.JOB_TRACKER_HOME || join(homedir(), '.job-tracker');
+  return laufbahnHome();
 }
 
 function file(sessionId: string | undefined): string {

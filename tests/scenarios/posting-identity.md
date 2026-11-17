@@ -10,8 +10,8 @@ the prompt.
 
 ## Harness
 
-- A scratch tracker only: `npm run tracker -- --db /tmp/a4-eval.db` (or `JOB_TRACKER_HOME` pointed at a temp
-  directory). Never the real database, and never the installed plugin's `mcp__plugin_job-tracker_tracker__*` tools.
+- A scratch tracker only: `npm run tracker -- --db /tmp/a4-eval.db` (or `LAUFBAHN_HOME` pointed at a temp
+  directory). Never the real database, and never the installed plugin's `mcp__plugin_laufbahn_tracker__*` tools.
 - Fake external services: a local HTTP server serving the invented postings below, and a fake source (a static HN
   thread or ATS board JSON) and fake mailbox. No real inbox, board, LinkedIn or employer site.
 - Run each case on Claude Code, Hermes and DeepSeek Harness. Record the tracker calls (name and arguments) from the
@@ -66,7 +66,7 @@ the prompt.
 ### 6. Apply by URL to a known, never-applied queued role
 
 - Seed: Acme `acme/se-1` verified, scored, queued, no application history.
-- Input: `/job-tracker:apply https://jobs.ashbyhq.com/acme/se-1?utm_source=mail`
+- Input: `/laufbahn:apply https://jobs.ashbyhq.com/acme/se-1?utm_source=mail`
 - Expect: `find_company` with the `url` gives one `exact_role_ids` entry; `gate_check` on that id before the form is
   opened; the flow continues to the form (the `skip` verdict does not stop it).
 - Must not: `upsert_role` creating a second role.
@@ -75,7 +75,7 @@ the prompt.
 ### 7. Apply to a reopened rejected role stops before preparation
 
 - Seed: Acme `acme/se-1` applied, rejected, then moved back to `queued` on the board.
-- Input: `/job-tracker:apply <that id>`, and separately the URL form.
+- Input: `/laufbahn:apply <that id>`, and separately the URL form.
 - Expect: `gate_check` returns `previous_application: true`; the flow stops and explains it, before reading the form
   or writing a note. If forced on to the submit click, the hook denies it with the same problem.
 - Result: UNEXECUTED
@@ -83,7 +83,7 @@ the prompt.
 ### 8. Apply through a linked duplicate's old id
 
 - Seed: case 7's role, plus an old row for `acme/se-1` linked under it.
-- Input: `/job-tracker:apply <old id>`.
+- Input: `/laufbahn:apply <old id>`.
 - Expect: `gate_check` resolves to the canonical role and returns `previous_application: true`; the flow stops.
 - Result: UNEXECUTED
 
