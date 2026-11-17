@@ -51,6 +51,12 @@ const ERROR_PATTERNS: Pattern[] = [
 
 const WARN_PATTERNS: Pattern[] = [
   { kind: 'stock_phrase', re: /\b(?:delve|tapestry|testament to|thrilled|passionate about|in today's fast-paced|leverag(?:e|ing) my|synerg\w*|i am excited to apply|i'm excited to apply|dynamic team|perfect fit|resonates? (?:deeply )?with me|look no further)\b/gi, hint: 'Stock phrase. Use a plain, specific verb.' },
+  // German Anschreiben clichés. `\b` is ASCII-only, so umlaut words also accept ae/oe/ue/ss spellings.
+  {
+    kind: 'stock_phrase',
+    re: /\b(?:hiermit bewerbe ich mich|mit gro(?:ß|ss)em interesse|auf der suche nach einer neuen herausforderung|einladung zu(?:m| einem) (?:pers(?:ö|oe)nlichen )?vorstellungsgespr(?:ä|ae)ch|(?:teamf(?:ä|ae)hig|belastbar|flexibel|zuverl(?:ä|ae)ssig|motiviert|engagiert)(?:\s*,\s*|\s+und\s+)(?:teamf(?:ä|ae)hig|belastbar|flexibel|zuverl(?:ä|ae)ssig|motiviert|engagiert))/gi,
+    hint: 'German stock phrase (Anschreiben cliché). Say something specific to this role and employer instead.',
+  },
   { kind: 'bare_url_signature', re: /\n\s*https?:\/\/\S+(?:\s+https?:\/\/\S+)*\s*$/gi, hint: 'Signature should be the name only, no bare URLs.' },
 ];
 

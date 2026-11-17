@@ -40,6 +40,15 @@ example: <Company> form: "Salary expectations (annual, gross, in $)".
 date:    <YYYY-MM-DD>
 ```
 
+```
+text:    Drop a role when the employer's own text requires German above B1 ("fließend", "verhandlungssicher", "C1").
+         "Von Vorteil" or "wünschenswert" is not a requirement. A one-level gap ("gute Deutschkenntnisse") is a question, not a drop.
+reason:  User's German is B1. Roles that need business German waste an application and an interview.
+example: <Company>, <Working student role>: "Sehr gute Deutschkenntnisse in Wort und Schrift sind Voraussetzung."
+date:    <YYYY-MM-DD>
+types:   scoring, sourcing
+```
+
 ## Weak rules (avoid)
 
 - "Be careful with locations." (No line, no action.)

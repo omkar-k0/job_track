@@ -1,4 +1,4 @@
-// The docs page (site/docs.html): stays in sync with the plugin's package.json and commands.
+// The usage docs (docs/usage.md): stays in sync with the plugin's package.json and commands.
 
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ const REPO = dirname(dirname(fileURLToPath(import.meta.url)));
 const readRepo = (p: string) => readFileSync(join(REPO, p), 'utf8');
 
 const pkg = JSON.parse(readRepo('plugin/package.json'));
-const docs = readRepo('site/docs.html');
+const docs = readRepo('docs/usage.md');
 
 test('docs page cites the Node.js engine requirement from package.json', () => {
   const engine = pkg.engines.node; // e.g. ">=22.18"
@@ -36,36 +36,34 @@ test('docs page lists every shipped command', () => {
 });
 
 test('docs page has expected sections', () => {
-  const sections = ['requirements', 'install', 'setup', 'commands', 'data', 'dev'];
-  for (const id of sections) {
-    assert.ok(
-      docs.includes(`id="${id}"`),
-      `docs has section with id="${id}"`,
-    );
+  const sections = ['Requirements', 'Install', 'Setup walkthrough', 'Commands', 'Your data', 'Developer docs'];
+  for (const title of sections) {
+    assert.ok(docs.includes(`\n## ${title}\n`), `docs has a "## ${title}" section`);
+    assert.ok(docs.includes(`](#${title.toLowerCase().replace(/ /g, '-')})`), `docs table of contents links to ${title}`);
   }
 });
 
 test('docs page links to the GitHub repo', () => {
   assert.ok(
-    docs.includes('github.com/adamwardecki/job-tracker-mcp'),
+    docs.includes('github.com/omkar-k0/job_track'),
     'docs links to GitHub repo',
   );
 });
 
 test('docs page links to privacy policy', () => {
   assert.ok(
-    docs.includes('privacy.html'),
-    'docs links to privacy page',
+    docs.includes('../PRIVACY.md'),
+    'docs links to privacy policy',
   );
 });
 
-test('docs page links to developer docs on GitHub', () => {
-  assert.ok(
-    docs.includes('job-tracker-mcp/blob/main/README.md'),
-    'docs links to README on GitHub',
-  );
-  assert.ok(
-    docs.includes('job-tracker-mcp/blob/main/CONTRIBUTING.md'),
-    'docs links to CONTRIBUTING on GitHub',
-  );
+test('docs page links to developer docs in the repo', () => {
+  assert.ok(docs.includes('../README.md'), 'docs links to README');
+  assert.ok(docs.includes('../CONTRIBUTING.md'), 'docs links to CONTRIBUTING');
+});
+
+test('docs page install steps match the marketplace manifest', () => {
+  const market = JSON.parse(readRepo('.claude-plugin/marketplace.json'));
+  assert.ok(docs.includes(`/plugin install job-tracker@${market.name}`), 'docs install line uses the marketplace name');
+  assert.ok(docs.includes('/plugin marketplace add omkar-k0/job_track'), 'docs marketplace add line');
 });

@@ -8,8 +8,8 @@ preview and warns of breaking changes, so treat this host as experimental.
 ## Install
 
 ```bash
-git clone https://github.com/adamwardecki/job-tracker-mcp.git
-cd job-tracker-mcp
+git clone https://github.com/omkar-k0/job_track.git
+cd job_track
 node --no-warnings plugin/scripts/dsh-install.ts
 ```
 

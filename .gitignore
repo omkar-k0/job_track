@@ -12,7 +12,4 @@ docs/superpowers/
 /package-lock.json
 /plugin/package-lock.json
 .superpowers/
-
-# Agent factory scratch files (stage context, drafts of briefs and reviews). Never committed.
-.factory/
 .env

@@ -1,10 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import type { IncomingHttpHeaders } from 'node:http';
 import { request } from 'node:http';
 import { test } from 'node:test';
 import { createBoardServer } from '../../plugin/servers/tracker/src/board-server.ts';
 import type { Tracker } from '../../plugin/servers/tracker/src/tracker.ts';
-import { seeded } from './board-seed.ts';
+import { seeded, seededRich } from './board-seed.ts';
 
 const TOKEN = 'a'.repeat(64);
 
@@ -14,8 +15,9 @@ interface Reply {
   body: string;
 }
 
-async function board({ idleMs = 60_000, onIdle = () => {}, tracker }: { idleMs?: number; onIdle?: () => void; tracker?: Tracker } = {}) {
-  const s = seeded();
+async function board({ idleMs = 60_000, onIdle = () => {}, tracker, rich = false }: { idleMs?: number; onIdle?: () => void; tracker?: Tracker; rich?: boolean } = {}) {
+  // The rich seed's extra ids are only used by tests that ask for it.
+  const s = (rich ? seededRich() : seeded()) as ReturnType<typeof seededRich>;
   const server = createBoardServer({ tracker: tracker ?? s.t, token: TOKEN, idleMs, onIdle });
   await new Promise<void>((done) => server.listen(0, '127.0.0.1', () => done()));
   const addr = server.address();
@@ -85,20 +87,12 @@ test('the page is static, carries no data and sends a strict CSP', async () => {
   }
 });
 
-test('the board serves bundled fonts under its same-origin font policy', async () => {
+test('the board serves no fonts or other files: it uses the system serif and inline icons', async () => {
   const b = await board();
   try {
     const page = await b.send('GET', '/');
-    assert.match(String(page.headers['content-security-policy']), /font-src 'self';/);
-    for (const family of ['geist', 'geist-mono', 'petrona', 'petrona-italic']) {
-      for (const subset of ['latin', 'latin-ext']) {
-        const font = await b.send('GET', `/fonts/${family}-${subset}.woff2`);
-        assert.equal(font.status, 200);
-        assert.equal(font.headers['content-type'], 'font/woff2');
-        assert.ok(font.body.startsWith('wOF2'), 'serves a WOFF2 font');
-      }
-    }
-    assert.equal((await b.send('GET', '/fonts/unknown.woff2')).status, 404);
+    assert.doesNotMatch(String(page.headers['content-security-policy']), /font-src/, 'default-src none blocks every font');
+    for (const path of ['/fonts/petrona-latin.woff2', '/fonts/geist-latin.woff2', '/fonts/unknown.woff2', '/icons.svg', '/board']) assert.equal((await b.send('GET', path)).status, 404, path);
   } finally {
     await b.close();
   }
@@ -272,4 +266,113 @@ test('writes are accepted only from the board page itself', async () => {
   } finally {
     await b.close();
   }
+});
+
+test('the role endpoint needs the token and the right host, and unknown or odd ids are 404', async () => {
+  const b = await board({ rich: true });
+  try {
+    assert.equal((await b.send('GET', `/api/role/${b.queued}`)).status, 401);
+    assert.equal((await b.send('GET', `/api/role/${b.queued}`, { headers: { ...b.auth, host: `evil.example:${b.port}` } })).status, 421);
+    const ok = await b.send('GET', `/api/role/${b.interviewing}`, { headers: b.auth });
+    assert.equal(ok.status, 200);
+    const d = JSON.parse(ok.body);
+    assert.equal(d.company.name, 'Adventure Works');
+    assert.equal(d.interviews.length, 2);
+    assert.ok(d.events.length > 3);
+    assert.equal((await b.send('GET', '/api/role/9999', { headers: b.auth })).status, 404);
+    assert.match(JSON.parse((await b.send('GET', '/api/role/9999', { headers: b.auth })).body).error, /No role 9999/);
+    for (const path of ['/api/role/abc', '/api/role/', '/api/role/1/2', '/api/role/-1', '/api/role/1e3', `/api/role/${'9'.repeat(13)}`, '/api/role/%31']) assert.equal((await b.send('GET', path, { headers: b.auth })).status, 404, path);
+    // Reading a role writes nothing, and a POST to it is not a route.
+    assert.equal((await b.send('POST', `/api/role/${b.queued}`, { headers: b.json, body: '{}' })).status, 404);
+    assert.equal(b.t.roleRow(b.queued)?.status, 'queued');
+  } finally {
+    await b.close();
+  }
+});
+
+test('the board view carries the stats the header shows', async () => {
+  const b = await board({ rich: true });
+  try {
+    const view = JSON.parse((await b.send('GET', '/api/board', { headers: b.auth })).body);
+    assert.equal(view.stats.counts.applied, 1);
+    assert.equal(view.stats.reply_rate, 0.75);
+    assert.equal(view.stats.upcoming_interviews.length, 1);
+  } finally {
+    await b.close();
+  }
+});
+
+test('a request that a browser marks as cross-site is refused even with the token, reads included', async () => {
+  const b = await board({ rich: true });
+  try {
+    for (const site of ['cross-site', 'same-site']) {
+      assert.equal((await b.send('GET', '/api/board', { headers: { ...b.auth, 'sec-fetch-site': site } })).status, 403, site);
+      assert.equal((await b.send('GET', `/api/role/${b.queued}`, { headers: { ...b.auth, 'sec-fetch-site': site } })).status, 403, site);
+      assert.equal((await b.send('GET', '/api/health', { headers: { ...b.auth, 'sec-fetch-site': site } })).status, 403, site);
+    }
+    for (const site of ['same-origin', 'none']) assert.equal((await b.send('GET', '/api/board', { headers: { ...b.auth, 'sec-fetch-site': site } })).status, 200, site);
+    // The wrong token is still 401 first, so this does not reveal that a token would have worked.
+    assert.equal((await b.send('GET', '/api/board', { headers: { authorization: 'Bearer nope', 'sec-fetch-site': 'cross-site' } })).status, 401);
+  } finally {
+    await b.close();
+  }
+});
+
+test('writes from another origin, another port or a rebinding name are refused whatever else they send', async () => {
+  const b = await board();
+  try {
+    const body = JSON.stringify({ role_id: b.scored, to: 'queued' });
+    const post = (headers: Record<string, string>) => b.send('POST', '/api/move', { headers: { ...b.auth, 'content-type': 'application/json', ...headers }, body });
+    // Another local service on 127.0.0.1 (another port) has a different origin.
+    assert.equal((await post({ origin: `http://127.0.0.1:${b.port + 1}`, 'sec-fetch-site': 'same-site' })).status, 403);
+    // A page on the rebinding name: Host and Origin agree with each other, but Host is not ours.
+    assert.equal((await post({ host: `evil.example:${b.port}`, origin: `http://evil.example:${b.port}`, 'sec-fetch-site': 'same-origin' })).status, 421);
+    // https or null origins are never the board.
+    assert.equal((await post({ origin: `https://127.0.0.1:${b.port}`, 'sec-fetch-site': 'same-origin' })).status, 403);
+    assert.equal((await post({ origin: 'null' })).status, 403);
+    assert.equal((await post({ origin: `http://127.0.0.1:${b.port}`, 'sec-fetch-site': 'none' })).status, 403, 'a navigation is not a fetch from the page');
+    assert.equal(b.t.roleRow(b.scored)?.status, 'scored');
+    assert.equal((await post({ origin: `http://127.0.0.1:${b.port}`, 'sec-fetch-site': 'same-origin' })).status, 200);
+  } finally {
+    await b.close();
+  }
+});
+
+test('every page and API answer says nothing else may embed, read or share a window with the board', async () => {
+  const b = await board();
+  try {
+    for (const path of ['/', '/board.js', '/board.css', '/nope']) {
+      const r = await b.send('GET', path);
+      assert.equal(r.headers['cross-origin-resource-policy'], 'same-origin', path);
+      assert.equal(r.headers['cross-origin-opener-policy'], 'same-origin', path);
+      assert.equal(r.headers['x-frame-options'], 'DENY', path);
+      assert.match(String(r.headers['content-security-policy']), /frame-ancestors 'none'/, path);
+    }
+    const api = await b.send('GET', '/api/board', { headers: b.auth });
+    assert.equal(api.headers['cross-origin-resource-policy'], 'same-origin');
+    assert.equal(api.headers['cache-control'], 'no-store');
+    // No inline script or style may run: the CSP has no 'unsafe-inline' and no eval.
+    assert.doesNotMatch(String(api.headers['content-security-policy']), /unsafe-/);
+  } finally {
+    await b.close();
+  }
+});
+
+// A backstop for the Chrome tests in board-ui.test.ts, which skip when no browser renders: untrusted text must only
+// reach the page through textContent and attribute setters.
+test('the page source never builds markup, evaluates strings or uses inline handlers', () => {
+  const dir = new URL('../../plugin/servers/tracker/src/board/', import.meta.url);
+  const js = readFileSync(new URL('board.js', dir), 'utf8');
+  const html = readFileSync(new URL('index.html', dir), 'utf8');
+  const css = readFileSync(new URL('board.css', dir), 'utf8');
+  for (const sink of [/\.innerHTML\b/, /\.outerHTML\b/, /insertAdjacentHTML/, /document\.write/, /\beval\s*\(/, /new Function\b/, /\.srcdoc\b/, /setTimeout\(\s*['"`]/, /setInterval\(\s*['"`]/, /\.createContextualFragment/, /DOMParser/, /import\s*\(/, /setAttribute\(\s*['"]on/, /setAttribute\(\s*['"]style/]) {
+    assert.doesNotMatch(js, sink, `board.js uses ${sink}`);
+  }
+  // Links built from data go through safeHref; nothing assigns href or src from a raw field.
+  for (const m of js.matchAll(/\.(href|src)\s*=\s*([^;\n]+)/g)) assert.match(m[2] ?? '', /^(href|url\.href)\b|safeHref/, `unvetted ${m[0]}`);
+  assert.doesNotMatch(html, /<script(?![^>]*\bsrc=)[^>]*>/i, 'no inline script');
+  assert.doesNotMatch(html, /\son[a-z]+\s*=/i, 'no inline handler');
+  assert.doesNotMatch(html, /\sstyle\s*=/i, 'no inline style attribute');
+  assert.doesNotMatch(`${html}${css}${js}`, /https?:\/\/(?!www\.w3\.org\/2000\/svg)[a-z0-9.-]+\.[a-z]{2,}/i, 'no external host: no CDN, no remote font');
+  assert.doesNotMatch(css, /@font-face|url\(/, 'no web fonts or remote images: the system serif and inline SVG only');
 });

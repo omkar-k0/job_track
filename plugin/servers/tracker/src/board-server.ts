@@ -5,31 +5,30 @@ import { timingSafeEqual } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
-import { boardMove, boardNote, boardView } from './board-api.ts';
+import { BoardNotFound, boardMove, boardNote, boardRole, boardView } from './board-api.ts';
 import { ToolError } from './errors.ts';
 import type { Tracker } from './tracker.ts';
 import { errorText } from './util.ts';
 
 const asset = (name: string) => readFileSync(new URL(`./board/${name}`, import.meta.url));
+// Only these three files are served. The board uses the system serif and inline SVG icons, so there are no fonts
+// or images to fetch and the CSP allows none (a favicon is a data: URI in the page).
 const STATIC: Record<string, { type: string; body: Buffer }> = {
   '/': { type: 'text/html; charset=utf-8', body: asset('index.html') },
   '/board.css': { type: 'text/css; charset=utf-8', body: asset('board.css') },
   '/board.js': { type: 'text/javascript; charset=utf-8', body: asset('board.js') },
 };
-// Fonts ship with the board so it stays offline and only serves explicitly listed assets.
-for (const family of ['geist', 'geist-mono', 'petrona', 'petrona-italic']) {
-  for (const subset of ['latin', 'latin-ext']) {
-    const name = `fonts/${family}-${subset}.woff2`;
-    STATIC[`/${name}`] = { type: 'font/woff2', body: asset(name) };
-  }
-}
 const MAX_BODY = 64 * 1024;
 // No CORS headers are ever sent, so other origins can't read responses.
 const HEADERS = {
-  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+  'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
   'Referrer-Policy': 'no-referrer',
   'X-Content-Type-Options': 'nosniff',
   'Cache-Control': 'no-store',
+  // Belt and braces beside the CSP and the Host check: no other site may embed, read or share a window with the board.
+  'Cross-Origin-Resource-Policy': 'same-origin',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'X-Frame-Options': 'DENY',
 };
 
 class HttpError extends Error {
@@ -72,7 +71,6 @@ export function createBoardServer({ tracker, token, idleMs, onIdle, log = () => 
   const server = createServer((req, res) => {
     handle(req, res).catch((err) => {
       log(`request failed: ${errorText(err)}`);
-      tracker.reportCrash(err, { where: 'board' });
       if (!res.headersSent) send(res, 500, { error: 'Internal error.' });
     });
   });
@@ -96,6 +94,7 @@ export function createBoardServer({ tracker, token, idleMs, onIdle, log = () => 
       res.end(file.body);
     } else if (!path.startsWith('/api/')) send(res, 404, { error: 'Not found.' });
     else if (!authorized(req.headers.authorization)) send(res, 401, { error: 'Missing or wrong token. Run /job-tracker:board in Claude for a fresh link.' });
+    else if (!fetchSiteOk(req)) send(res, 403, { error: 'The board answers only its own page.' });
     else if (req.method !== 'GET' && !fromPage(req, host)) send(res, 403, { error: 'Changes are accepted only from the board page in your browser.' });
     else {
       touch();
@@ -108,17 +107,27 @@ export function createBoardServer({ tracker, token, idleMs, onIdle, log = () => 
     try {
       if (req.method === 'GET' && path === '/api/health') return [200, { ok: true }];
       if (req.method === 'GET' && path === '/api/board') return [200, boardView(tracker)];
+      const role = req.method === 'GET' ? /^\/api\/role\/(\d{1,12})$/.exec(path) : null;
+      if (role) return [200, boardRole(tracker, Number(role[1]))];
       if (req.method === 'POST' && path === '/api/move') return [200, boardMove(tracker, await readJson(req))];
       if (req.method === 'POST' && path === '/api/note') return [200, boardNote(tracker, await readJson(req))];
       return [404, { error: 'Not found.' }];
     } catch (err) {
       if (err instanceof HttpError) return [err.status, { error: err.message }];
+      if (err instanceof BoardNotFound) return [404, { error: err.message }];
       if (err instanceof ToolError) return [400, { error: err.message }];
       throw err;
     }
   }
 
   return server;
+}
+
+// Reads too: a browser that says the request came from another site (a rebinding page, a <script> tag) is refused
+// even when it somehow holds the token. 'none' is the user typing or opening the address; scripts send no header.
+function fetchSiteOk(req: IncomingMessage): boolean {
+  const site = req.headers['sec-fetch-site'];
+  return site === undefined || site === 'same-origin' || site === 'none';
 }
 
 // A browser marks a write from the board page with the page's own origin. A script holding the token (the

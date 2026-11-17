@@ -1,6 +1,6 @@
 ---
 name: sourcer
-description: Pulls new job leads from exactly one source (a catalogue ID from the source-roles skill, e.g. linkedin, ats_boards, hn, waas, wellfound, wttj, wwr, indeed, dice, builtin, usajobs, jack-and-jill), dedupes each with find_company, upserts new ones as found, and returns a compact lead list with every aggregator tag marked UNVERIFIED. Launched by /job-tracker:sweep, one instance per source, in parallel.
+description: Pulls new job leads from exactly one source (a catalogue ID from the source-roles skill, e.g. linkedin, ats_boards, arbeitsagentur, stepstone, xing, stellenwerk, wearedevelopers, berlinstartupjobs, hn, waas, wellfound, indeed, indeed_de, jack-and-jill), dedupes each with find_company, upserts new ones as found, and returns a compact lead list with every aggregator tag (location, pay, employment type) marked UNVERIFIED. Launched by /job-tracker:sweep, one instance per source, in parallel.
 model: sonnet
 ---
 
@@ -10,11 +10,11 @@ You receive: the source name, the rule types to load (`sourcing`), the `run_id`,
 
 ## Hard rules
 
-- Follow the `source-roles` skill and the section for your source in its `reference.md`.
-- **Every aggregator tag is a lead, not a fact.** Location, salary, industry, seniority and "Remote" from the source go in your output marked `UNVERIFIED`, never into `location_line` or `comp_*` fields. Why: wrong drops and wrong approvals both came from trusting tags.
+- Follow the `source-roles` skill and the section for your source in its `reference.md`. For a German or EU board, search in German and English as that file says.
+- **Every aggregator tag is a lead, not a fact.** Location, salary, industry, seniority, employment type ("Werkstudent", "Praktikum", "Teilzeit") and "Remote" from the source go in your output marked `UNVERIFIED`, never into `location_line` or `comp_*` fields. Why: wrong drops and wrong approvals both came from trusting tags.
 - **Dedupe before upsert, with the URL.** Call `find_company` for every lead, passing its `url` (the employer ATS link when the card has one) as well as the name. Verdict `skip` (the posting is already tracked, a live application at the company, or `no_cold_apply`): do not upsert. `seen`: upsert a different requisition there, as Dedupe and Identity in `source-roles` say. Why: a rejection blocks only the posting it was for; there is no company ban.
 - **One posting, one role.** Follow Identity in `source-roles`: pass `url` whenever known; for a lead without a URL check the same-title roles from `find_company` with `get_role` and pass `id` to update the one that is this posting; when `upsert_role` returns a non-empty `possible_role_ids`, `get_role` each and link a confirmed duplicate with `link_duplicate_role`. Link only on positive evidence (same ATS URL or posting ID, a listing that links to it, the same req number), never on the title. Why: URL-less re-runs created duplicate roles, and different reqs often share a title.
-- **Load your rules first.** Rules: load `sourcing` (Reading rules: `${CLAUDE_PLUGIN_ROOT}/templates/rules.md`; Hermes: `${HERMES_SKILL_DIR}/../templates/rules.md`). The sweep names the types in your inputs. Also `get_profile` and apply its saved filters. Apply both to every lead before `upsert_role`. A complete read that returns no rules means no extra limits: carry on with the profile filters alone. Only an unreadable read blocks the run. Why: an empty list was treated as "nothing allowed" and sourced nothing.
+- **Load your rules first.** Rules: load `sourcing` (Reading rules: `${CLAUDE_PLUGIN_ROOT}/templates/rules.md`; Hermes: `${HERMES_SKILL_DIR}/../templates/rules.md`). The sweep names the types in your inputs. Also `get_profile` and apply its saved filters. Apply both to every lead before `upsert_role`, including `filters.employment_types` and `filters.languages` where the lead's own text decides it (the early drops in `source-roles`). A complete read that returns no rules means no extra limits: carry on with the profile filters alone. Only an unreadable read blocks the run. Why: an empty list was treated as "nothing allowed" and sourced nothing.
 - **Retry a failing call at most twice.** Then `set_source_status` with `failed` and the verbatim error, and return what you have.
 - **Read-only on the source.** No saving, applying, messaging, following, or changing settings. Never print URLs that carry API keys.
 - If your source needs a browser and none is available, return immediately with `skipped: no browser`. Do not mark the source failed.
@@ -32,7 +32,7 @@ You receive: the source name, the rule types to load (`sourcing`), the `run_id`,
 
 ```
 source: <name> | status: ok|failed|skipped|caught up | new: N | seen: N | skipped(dedupe): N | early drops: N
-<role_id> | <company> | <title> | <url> | raw_location: <tag> (UNVERIFIED) | raw_comp: <tag> (UNVERIFIED) | new|seen | possible duplicate of <ids> (if unresolved)
+<role_id> | <company> | <title> | <url> | raw_location: <tag> (UNVERIFIED) | raw_comp: <tag> (UNVERIFIED) | raw_type: <tag> (UNVERIFIED) | new|seen | possible duplicate of <ids> (if unresolved)
 ...
 errors: <verbatim, if any>
 ```

@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { beforeEach, test } from 'node:test';
 import { preTool, prompt, setOutput, stop } from '../plugin/hooks/gates.ts';
+import { CONSENT, jsIntent, PERSONAL, PERSONAL_OPTION, SUBMIT, truthy } from '../plugin/hooks/lib/classify.ts';
 import { loadSession, saveSession } from '../plugin/hooks/lib/session.ts';
 import { sameTarget, targetMatchesRole } from '../plugin/hooks/lib/target.ts';
 import type { HookOutput } from '../plugin/hooks/lib/types.ts';
@@ -315,6 +316,68 @@ test('personal-data fields and consent boxes are blocked', async () => {
   await prompt({ session_id: sid, prompt: `/job-tracker:allow-consent ${verified.id}`, transcript_path: tp });
   assert.ok(await call('form_input', { ref: 'ref_3', value: true, tabId: 2 }, other), 'consent for one role cannot be used on another page');
   assert.equal(await call('form_input', { ref: 'ref_3', value: true, tabId: 1 }), undefined, 'user allowed consent on this role and page');
+});
+
+test('German personal-data, consent and submit labels match, with umlauts and with ae/oe/ue/ss', () => {
+  const personal = [
+    'Geburtsdatum', 'Ihr Geburtsort*', 'Staatsangehörigkeit', 'Staatsangehoerigkeit', 'STAATSANGEHÖRIGKEIT', 'Nationalität', 'Nationalitaet',
+    'Familienstand', 'Geschlecht', 'Anrede', 'Konfession', 'Religionszugehörigkeit', 'Religion', 'Schwerbehinderung', 'Grad der Behinderung',
+    'Steuer-ID', 'Steueridentifikationsnummer', 'Steuer-Identifikationsnummer', 'Sozialversicherungsnummer', 'SV-Nummer', 'Matrikelnummer',
+    'Ausweisnummer', 'Personalausweisnummer', 'Reisepass', 'Reisepassnummer',
+  ];
+  for (const label of personal) assert.match(label, PERSONAL, label);
+  for (const option of ['Männlich', 'maennlich', 'weiblich', 'divers', 'verheiratet', 'ledig', 'Frau', 'Herr']) assert.match(option, PERSONAL_OPTION, option);
+  for (const label of ['Vorname', 'Nachname', 'E-Mail-Adresse', 'Studiengang', 'Hochschule', 'Wochenstunden', 'Eintrittstermin', 'Gehaltsvorstellung', 'Studierendenausweis hochladen', 'Steuerung und Regelung', 'Anschreiben']) {
+    assert.doesNotMatch(label, PERSONAL, label);
+  }
+  const consent = [
+    'Einwilligung in die Datenverarbeitung', 'Datenschutzeinwilligung', 'Ich willige in die Speicherung meiner Daten ein', 'Zustimmung zur Weitergabe',
+    'Aufnahme in den Talentpool', 'Talent-Pool', 'Newsletter abonnieren', 'Newsletteranmeldung', 'Ich möchte Werbung per E-Mail erhalten', 'Marketingzwecke',
+    'Informieren Sie mich über zukünftige Stellenangebote', 'Über künftige Positionen informieren', 'zukuenftige Stellen',
+    'Speicherung meiner Bewerbungsunterlagen für 12 Monate', 'Sie dürfen meine Daten an Partnerunternehmen weitergeben', 'Ich stimme der Aufzeichnung des Gesprächs zu',
+    'Das Videointerview wird aufgezeichnet', 'Ich stimme zu, dass meine Unterlagen im Bewerberpool gespeichert werden',
+  ];
+  for (const label of consent) assert.match(label, CONSENT, label);
+  // As in English, where "privacy" and "terms" are not consent words, a bare privacy-policy or terms
+  // acknowledgement is left to the skills; "Bewerbung" must not read as "Werbung".
+  for (const label of ['Datenschutzerklärung', 'Datenschutz', 'Ich habe die Datenschutzhinweise gelesen', 'Ich akzeptiere die AGB', 'Ich stimme zu', 'Bewerbung als Werkstudent', 'Bewerbungsunterlagen hochladen', 'Impressum']) {
+    assert.doesNotMatch(label, CONSENT, label);
+  }
+  for (const v of ['Ja', 'Ich stimme zu', 'einverstanden', 'akzeptieren']) assert.ok(truthy(v), v);
+  for (const v of ['Nein', 'Ich stimme nicht zu']) assert.ok(!truthy(v), v);
+  const submit = ['Bewerbung absenden', 'Jetzt bewerben', 'Absenden', 'Abschicken', 'Einfach bewerben', 'Schnellbewerbung', 'Bewerbung einreichen', 'Bewerbung abschließen', 'Bewerbung abschliessen', 'Bewerben', 'JETZT BEWERBEN'];
+  for (const name of submit) assert.match(name, SUBMIT, name);
+  for (const name of ['Weiter', 'Zurück', 'Speichern', 'Bewerbung bearbeiten', 'Bewerbungsfrist', 'Absendername', 'Filter anwenden', 'Als Entwurf speichern']) assert.doesNotMatch(name, SUBMIT, name);
+  // The English patterns are unchanged.
+  for (const label of ['Passport number', 'Date of birth', 'Gender']) assert.match(label, PERSONAL);
+  assert.match('Submit application', SUBMIT);
+  assert.doesNotMatch('Agency', PERSONAL);
+  assert.equal(jsIntent('document.querySelector("#einwilligung").checked = true'), 'personal');
+  assert.equal(jsIntent('document.querySelector("#geburtsdatum").value = "1.1.2000"'), 'personal');
+});
+
+test('German personal-data fields, consent boxes and submit buttons are blocked in the browser', async () => {
+  const { verified } = trackerWithRoles();
+  const sid = session();
+  await markSession(sid);
+  const url = String(verified.url);
+  const tp = transcript([
+    [`${CHROME}navigate`, { url, tabId: 1 }, `url: ${url}\ntabId: 1`],
+    [`${CHROME}read_page`, { tabId: 1 }, 'textbox "Geburtsdatum" [ref_1]\ncombobox "Staatsangehoerigkeit" [ref_2]\ncheckbox "Ich willige in die Aufnahme in den Talentpool ein" [ref_3]\nradio "weiblich" [ref_4]\nbutton "Bewerbung absenden" [ref_5]\ntextbox "Wochenstunden" [ref_6]\ncheckbox "Ich habe die Datenschutzerklärung gelesen" [ref_7]'],
+  ]);
+  const call = async (tool: string, input: Record<string, unknown>) => {
+    outputs = [];
+    await preTool({ session_id: sid, transcript_path: tp, tool_name: `${CHROME}${tool}`, tool_input: input });
+    return reason();
+  };
+  assert.match(await call('form_input', { ref: 'ref_1', value: '01.01.2000', tabId: 1 }), /personal data/);
+  assert.match(await call('form_input', { ref: 'ref_2', value: 'deutsch', tabId: 1 }), /personal data/);
+  assert.match(await call('form_input', { ref: 'ref_3', value: 'Ja', tabId: 1 }), /is a consent/);
+  assert.match(await call('computer', { action: 'left_click', ref: 'ref_3', tabId: 1 }), /ticks a consent/);
+  assert.match(await call('computer', { action: 'left_click', ref: 'ref_4', tabId: 1 }), /personal-data question/);
+  assert.match(await call('computer', { action: 'left_click', ref: 'ref_5', tabId: 1 }), /Submit blocked/);
+  assert.equal(await call('form_input', { ref: 'ref_6', value: '20', tabId: 1 }), '');
+  assert.equal(await call('form_input', { ref: 'ref_3', value: false, tabId: 1 }), '', 'unticking is the privacy-preserving option');
 });
 
 test('AC8: board deletes need a fresh, passing guard and no stray clicks since', async () => {
@@ -626,4 +689,14 @@ test('auto-apply fails closed for malformed settings and a missing tracker', asy
   outputs = [];
   await preTool({ session_id: sid, transcript_path: applicationPage(String(verified.url)), tool_name: `${CHROME}computer`, tool_input: { action: 'left_click', ref: 'ref_45', tabId: 1 } });
   assert.ok(denied(), 'missing tracker does not grant automatic approval');
+});
+
+test('AC9: verify_artifact is still read-back checked when the session file cannot be written', async () => {
+  // JOB_TRACKER_HOME under a regular file: every mkdir fails with ENOTDIR (works as root too, unlike chmod).
+  const fake = transcript([[`${CHROME}navigate`, { url: 'https://mail.google.com/' }, 'opened']]);
+  const blocker = join(home, 'not-a-dir');
+  writeFileSync(blocker, '');
+  process.env.JOB_TRACKER_HOME = join(blocker, 'home');
+  await preTool({ session_id: session(), transcript_path: fake, tool_name: `${TRACKER}verify_artifact`, tool_input: { artifact_id: 1, readback: '{"id":"r-55512345"}' } });
+  assert.match(reason(), /verify_artifact needs a real read-back/);
 });

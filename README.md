@@ -1,9 +1,9 @@
 # Job Tracker
 
-[![CI](https://github.com/adamwardecki/job-tracker-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/adamwardecki/job-tracker-mcp/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/github/license/adamwardecki/job-tracker-mcp)](LICENSE)
+[![CI](https://github.com/omkar-k0/job_track/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/omkar-k0/job_track/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/omkar-k0/job_track)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A522.18-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org/)
-[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-D97757?logo=claude&logoColor=white)](https://jobtrackermcp.com/docs.html)
+[![Claude Code plugin](https://img.shields.io/badge/Claude_Code-plugin-D97757?logo=claude&logoColor=white)](docs/usage.md)
 [![Hermes Agent](https://img.shields.io/badge/Hermes_Agent-supported-6E56CF)](docs/hermes.md)
 [![Runtime deps: 0](https://img.shields.io/badge/runtime_deps-0-brightgreen)](package.json)
 
@@ -15,9 +15,9 @@ writes one short daily report.
 
 The design follows one principle: **fewer, better applications.**
 
-Website: [jobtrackermcp.com](https://jobtrackermcp.com/)
+Setup and usage docs: [docs/usage.md](docs/usage.md)
 
-Setup and usage docs: [jobtrackermcp.com/docs.html](https://jobtrackermcp.com/docs.html)
+Looking for a Werkstudent job, an internship or a first job in Germany? See [docs/germany.md](docs/germany.md).
 
 > **Status: early, and in active development.** Expect rough edges, and expect the source adapters to
 > break when job sites change. Issues and pull requests are welcome.
@@ -40,23 +40,23 @@ Setup and usage docs: [jobtrackermcp.com/docs.html](https://jobtrackermcp.com/do
 - **Recommended browser:** Claude in Chrome or the host's built-in browser.
 - **Optional:** a LinkedIn MCP server (read-only use: job search and inbox).
 
-Full setup and usage instructions: [jobtrackermcp.com/docs.html](https://jobtrackermcp.com/docs.html)
+Full setup and usage instructions: [docs/usage.md](docs/usage.md)
 
 ## Install
 
 Claude Code:
 
 ```
-/plugin marketplace add adamwardecki/job-tracker-mcp
-/plugin install job-tracker@job-tracker-mcp
+/plugin marketplace add omkar-k0/job_track
+/plugin install job-tracker@job_track
 /job-tracker:setup
 ```
 
 Hermes Agent:
 
 ```bash
-git clone https://github.com/adamwardecki/job-tracker-mcp.git
-cd job-tracker-mcp
+git clone https://github.com/omkar-k0/job_track.git
+cd job_track
 plugin/scripts/hermes-install.sh
 ```
 
@@ -74,16 +74,24 @@ Restart Hermes and type `/job-tracker:setup`. Details:
 | `/job-tracker:triage <source>` | Reconcile and clean a tracker board with the delete guard. |
 | `/job-tracker:prep <company>` | Interview prep from your stories. |
 | `/job-tracker:status` | Pipeline summary and open items. |
-| `/job-tracker:board` | Kanban board in your browser. |
+| `/job-tracker:board` | Board in your browser (Laufbahn): kanban or table, search and filters, a stats header, a details drawer per role, dark mode and keyboard shortcuts. |
 | `/job-tracker:cover-letter <role-id>` | Cover letter, optionally as a one-page PDF. |
 | `/job-tracker:correct` | Turn your override into a rule with a reason and example. |
+
+## Insight tools
+
+Besides the pipeline tools, the tracker answers three read-only questions locally ([reference](docs/tracker-api.md)):
+`follow_ups` (applications with no reply, interviews with no outcome recorded), `funnel_stats` (conversion per
+stage, reply rate by source, applications per week) and `export_data` (the roles, companies, events and interviews
+as JSON or CSV files in `~/.job-tracker/exports/`, only when you ask).
 
 ## Your data
 
 The tracker runs locally. A stdio server on `~/.job-tracker/tracker.db`. No network listener, no token.
-The directory is owner-only (`0700`), database is `0600`. Nothing is sent to the plugin's author.
+The directory is owner-only (`0700`), database is `0600`. **The plugin sends no telemetry:** no usage
+analytics, no crash reports, no phone-home of any kind. All plugin data stays local in `~/.job-tracker`.
 
-[Privacy policy](https://jobtrackermcp.com/privacy.html) ([source](PRIVACY.md)).
+See the [privacy policy](PRIVACY.md).
 
 ## Hooks (hard gates)
 
@@ -114,6 +122,13 @@ See [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
 3. **LinkedIn is read-only and optional.** Send and connect tools are blocked by a hook.
 4. **Voice.** `write-note` uses an installed humanizer or writing-style skill when present, else its own rules.
 5. **Templates ship neutral.** Your own values go in through setup.
+
+## Origin
+
+Job Tracker started as a copy of [job-tracker-mcp](https://github.com/adamwardecki/job-tracker-mcp) by
+Adam Wardecki, which is released under the MIT license. This repository is an independent copy, maintained
+separately by omkar, with the website and usage analytics removed. Both copyright notices are kept in
+[LICENSE](LICENSE).
 
 ## License
 

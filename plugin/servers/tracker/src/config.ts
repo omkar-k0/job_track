@@ -26,6 +26,13 @@ export interface PayFloor {
   contract_type?: string | null;
 }
 
+export const EMPLOYMENT_TYPES = ['werkstudent', 'internship', 'pflichtpraktikum', 'freiwilliges_praktikum', 'full_time', 'part_time', 'contract', 'thesis'] as const;
+export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
+// CEFR levels plus native; the user's own statement, never inferred from the CV.
+export const LANGUAGE_LEVELS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2', 'native'] as const;
+export type LanguageLevel = (typeof LANGUAGE_LEVELS)[number];
+export const WRITING_LANGUAGES = ['auto', 'de', 'en'] as const;
+
 export interface FiltersConfig {
   work_mode: ('remote' | 'hybrid' | 'onsite')[];
   hybrid?: { max_days_per_week?: number | null; cities?: string[] };
@@ -39,6 +46,10 @@ export interface FiltersConfig {
   excluded_industries?: string[];
   excluded_role_shapes?: string[];
   culture_red_lines?: string[];
+  employment_types?: EmploymentType[];
+  weekly_hours?: { min?: number | null; max?: number | null };
+  enrolled?: boolean | null;
+  languages?: { language: string; level: LanguageLevel }[];
 }
 
 export interface PrefsConfig {
@@ -58,6 +69,7 @@ export interface WritingConfig {
   max_words_cover_note?: number;
   never_volunteer_gaps?: boolean;
   signature_style?: 'name_only' | 'name_and_links';
+  language?: (typeof WRITING_LANGUAGES)[number];
 }
 
 export interface AccountsConfig {
@@ -141,6 +153,13 @@ export const CONFIG_SCHEMA: { [K in SectionName]: SectionSchema } = {
       excluded_industries: strList,
       excluded_role_shapes: strList,
       culture_red_lines: strList,
+      employment_types: { type: 'array', items: { type: 'string', enum: EMPLOYMENT_TYPES } },
+      weekly_hours: { type: 'object', fields: { min: { type: ['number', 'null'] }, max: { type: ['number', 'null'] } } },
+      enrolled: { type: ['boolean', 'null'] },
+      languages: {
+        type: 'array',
+        items: { type: 'object', required: ['language', 'level'], fields: { language: str, level: { type: 'string', enum: LANGUAGE_LEVELS } } },
+      },
     },
   },
   prefs: {
@@ -162,6 +181,7 @@ export const CONFIG_SCHEMA: { [K in SectionName]: SectionSchema } = {
       max_words_cover_note: { type: 'number' },
       never_volunteer_gaps: bool,
       signature_style: { type: 'string', enum: ['name_only', 'name_and_links'] },
+      language: { type: 'string', enum: WRITING_LANGUAGES },
     },
   },
   accounts: {

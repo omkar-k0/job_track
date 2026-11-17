@@ -1,6 +1,6 @@
 ---
 name: score-role
-description: Scores a verified job role against the user's hard filters and soft preferences, uses check_pay for the pay floor with a looked-up exchange rate, and records scored or dropped with evidence. Use after verify-employer for every verified role, when re-scoring after a user correction, or when deciding which queued roles to prepare first.
+description: Scores a verified job role against the user's hard filters (including employment type, weekly hours, enrolment and language requirements) and soft preferences, uses check_pay for the pay floor with a looked-up exchange rate, and records scored or dropped with evidence. Use after verify-employer for every verified role, when re-scoring after a user correction, or when deciding which queued roles to prepare first.
 ---
 
 # Score role
@@ -11,6 +11,8 @@ Hard filters first (any miss drops). Then soft preferences (only move the score)
 
 - **Only score verified roles.** If `verified_at` is empty, run `verify-employer` first.
 - **Pay goes through `check_pay`.** Never eyeball it. Drop only if the band **maximum** is below the floor; straddling bands are kept and flagged with where in the band the user would need to land. Why: a range whose top cleared the floor was once dismissed as "under floor".
+- **Compare like with like.** `check_pay` annualises every period with full-time hours (an hour counts as 1,760 a year), so an hourly floor against a monthly posting gives a wrong drop. Convert the posting to the **floor's period** first (see `reference.md`, Pay for part-time work) and pass that period. Why: a 15-hour Werkstudent job paying a fair hourly rate looked "under floor" when its monthly figure met an hourly floor.
+- **Surface legal and immigration questions; never decide them.** Work-hour limits, enrolment, internship pay and minimum wage, and student work-permit allowances go in `score_notes` as questions for the user to confirm with the employer, the university, the health insurer or the Ausländerbehörde. Never write "this is legal", "you may work" or "this must be paid". Never hard-code the statutory minimum wage: say "verify the current figure". Why: the answer depends on the contract and the person.
 - **Look up the exchange rate for today; never guess it.** Use a reliable source (e.g. the ECB reference rate or another central bank, via fetch or search). Pass it as `fx_rate` (units of the floor currency per 1 unit of the posting currency) and write the rate, its date and its source in `score_notes`.
 - **Read the per-role **Tools and skills** lines in `profile` before calling anything a gap.** The summary line at the top is not exhaustive. Why: a technology the user had used in two past roles was once scored as a gap from the summary line. (`stack` in config fields and drop categories means this same thing for any profession: tools, systems, methods, credentials.)
 - **A required bullet with nothing honest to point at is a scoring signal**, usually a drop. Do not plan to write around it in the cover note.
@@ -22,7 +24,7 @@ Hard filters first (any miss drops). Then soft preferences (only move the score)
 2. **Hard filters**, each against the employer's text:
    - **Work mode and location**: from the verified `location_line` and `location_type`. Hybrid only if the user allows it, within `max_days_per_week` and listed cities.
    - **Timezone overlap**: required hours or "must overlap with <zone>" vs `overlap_window`.
-   - **Work authorisation**: sponsorship needed where the user has none: drop.
+   - **Work authorisation**: sponsorship needed where the user has none: drop. The same for a stated requirement the user's `work_authorisation` does not cover ("EU-Bürgerschaft", "gültige Arbeitserlaubnis für Deutschland", "must hold the right to work in the EU"). A student work-permit day allowance is not a drop: it is a `Confirm yourself:` item (see `reference.md`).
    - **Pay**: call `check_pay` with `comp_min`, `comp_max`, `currency`, `period` (`year` | `month` | `week` | `day` | `hour`), `fx_rate` when the currency differs from the floor's, and `equity` if mentioned. Hourly, daily and monthly bands are converted from the **top** of the band. Verdicts:
      - `drop`: drop with the band quote.
      - `straddles`: keep; flag in `score_notes` ("band X to Y, floor Z, would need upper part of band").
@@ -34,20 +36,24 @@ Hard filters first (any miss drops). Then soft preferences (only move the score)
      - *Forward-deployed*: the main job is building inside customers' codebases or being embedded with customers (often sits in a Solutions, Customer or Growth department; titles like solutions, customer, implementation or sales engineer). A product engineer who joins some customer calls or demos is **not** forward-deployed. A JD listing FDE as an acceptable prior background is not a tell.
      - *Backend-only*: backend in the title, or "Full Stack (backend focused)" with no frontend or product surface. Borderline cases: flag with the quote.
      - *People manager*: the role is managing reports as the main job.
-   - **Numeric language gates**: a required bullet in a language the user avoids, with a self-rating screening question attached (e.g. "your Java level, 1 to 5"), is a drop with both quotes.
+   - **Employment type, hours and enrolment** (when `filters.employment_types`, `weekly_hours` or `enrolled` is set): compare the verified type, weekly hours and enrolment requirement; mismatches drop with the quote and category `employment_type`. Rules and the term list are in `reference.md`.
+   - **Language requirements** (when `filters.languages` is set): a language the posting requires that the user lacks, or requires at a higher level than the user's, is a drop with the quote and category `language`; "von Vorteil" and "nice to have" are soft. Detection, level mapping and the one-step-gap question are in `reference.md`.
+   - **Numeric programming-language gates**: a required bullet in a language the user avoids, with a self-rating screening question attached (e.g. "your Java level, 1 to 5"), is a drop with both quotes.
    - **Culture red lines**: overtime as a screening question, or hustle/grind as the centre of the values page ("whatever it takes", "996", "we're not for everyone", "more than 40 hours"): drop with the quote. Strong but generic ambition copy ("all-in", "high standards") with no hours expectation is **not** a drop: surface the quote in `score_notes`. An on-call rotation alone is ordinary; framed as a required screening question on a product role, surface it.
    - **Other excluded work** from rules (e.g. AI-training review gigs): drop with the rule id.
-3. **Soft preferences** (score only): title and seniority match, company stage, tools-and-skills want/avoid, stored as `stack_want`/`stack_avoid` (weigh the core of the role, not nice-to-haves), domain and product the user would plausibly care about, contract type, posting age, and signs of a real seat.
+3. **Soft preferences** (score only): title and seniority match, company stage, tools-and-skills want/avoid, stored as `stack_want`/`stack_avoid` (weigh the core of the role, not nice-to-haves), domain and product the user would plausibly care about, contract type, posting age, and signs of a real seat. For early-career roles also: whether the work is real project work or only admin, the mentoring or supervisor named in the posting, and whether the start date and duration fit `prefs.availability`. Skills the posting lists as "wünschenswert" or "nice to have" move the score a little; they never drop a role.
 4. **Score** on 0 to 10:
    - 8 to 10: clean on every hard filter, core tools and skills and role shape match, domain the user likes.
    - 5 to 7: clean on hard filters, partial match, or one flag for the user.
    - below 5: clean but weak; usually not prepared.
 5. **Record.**
-   - Pass: `transition` to `scored` with `score`, `score_notes` (filters checked, pay verdict with fx rate and source, flags with quotes, internal reservations and gaps), `reason` (one line), and `evidence` (the decisive quote).
-   - Fail: `transition` to `dropped` with `reason` naming the filter, `category` (`location`, `pay`, `industry`, `role_shape`, `stack`, `culture`, `gated`, `other`) and `evidence` = quote or `rule:<id>`.
+   - Pass: `transition` to `scored` with `score`, `score_notes` (filters checked, pay verdict with fx rate and source, flags with quotes, internal reservations and gaps), `reason` (one line), and `evidence` (the decisive quote). Start `score_notes` with one line in this form, using `unknown` for what the posting does not say: `type: werkstudent | hours: 15 to 20 per week | start: 2027-04-01 | language: de B2 required, en C1 | pay: 18 EUR per hour`. Put unresolved legal and immigration questions after it under `Confirm yourself:`.
+   - Fail: `transition` to `dropped` with `reason` naming the filter, `category` (`location`, `pay`, `industry`, `role_shape`, `stack`, `culture`, `gated`, `language`, `employment_type`, `other`) and `evidence` = quote or `rule:<id>`.
    - Blocking question (from verification or scoring): `transition` to `scored`, then `transition` to `queued` with `question` = the single question, `blocked_by: "user"`, and the quote(s) as `evidence`. It appears under Needs you.
 
 Gaps and reservations go in `score_notes` only. They never travel into anything written to the employer.
+
+Early-career detail (Werkstudent, internship, thesis rules, pay conversion, language levels) is in `reference.md` next to this file. Read it when the role is one of those types or the user has `filters.languages` set.
 
 ## Output
 

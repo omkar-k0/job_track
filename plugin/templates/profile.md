@@ -19,6 +19,7 @@ inferred (not literally in your CV) with "(inferred)" until you confirm it.
 - **Timezone:** <e.g. Europe/Berlin>
 - **Links (for forms, not email signatures):** <LinkedIn URL>, <portfolio, GitHub or publications URL>
 - **Availability:** <e.g. from <Month Year>, notice period N weeks>
+- **Hours per week (students, part-time):** <e.g. up to 20 in lecture periods, more in semester breaks>
 
 ## Summary
 
@@ -56,9 +57,27 @@ design (Disciplines, Tools, Methods), finance (Domains, Systems, Models), market
 
 <Degree, school, year. If none, write "None listed" so forms with a required Degree field are flagged, not guessed.>
 
+<!-- Students: one block per programme. -->
+- **Programme:** <e.g. B.Sc. Data Science, <University>>, <semester now>, expected end <Mon YYYY>
+- **Relevant courses:** <course names, comma-separated>
+- **Thesis (planned or done):** <topic, supervisor's field, status>
+- **Enrolled now:** <yes or no>
+
+## Projects and coursework
+
+<!-- Early-career: each project, course project, thesis, hackathon or open-source contribution is a block, like a role.
+Delete this section if you have only jobs. The Tools and skills line is required, same as for roles. -->
+
+### <Project name> (<Mon YYYY> to <Mon YYYY>, course / thesis / personal / hackathon)
+- **What it was:** <one line>
+- **Your part:** <what you did yourself, not the team>
+- **Tools and skills:** <every tool, library, method used, comma-separated>
+- **Result:** <what came out of it, with a number, grade or link if there is one>
+
 ## Languages spoken
 
-- <Language>: <level>
+<!-- Level as CEFR (A1 to C2) or native. setup builds filters.languages from this, and it never rates you higher than you state. -->
+- <Language>: <A1 | A2 | B1 | B2 | C1 | C2 | native>
 
 ## Facts confirmed by the user
 

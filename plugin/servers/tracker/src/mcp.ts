@@ -25,7 +25,7 @@ export interface RpcResponse {
 export type RpcReply = RpcResponse | RpcReply[];
 export type RpcHandler = (msg: unknown) => Promise<RpcReply | null>;
 
-export const SERVER_INFO = { name: 'job-hunt-tracker', version: '0.5.1' };
+export const SERVER_INFO = { name: 'job-hunt-tracker', version: '0.6.0' };
 const SUPPORTED = ['2025-06-18', '2025-03-26', '2024-11-05'];
 
 const INSTRUCTIONS = `Job-hunt tracker: the single source of truth for companies, roles, events, rules and config.
@@ -74,10 +74,7 @@ export function makeHandler(tracker: Tracker, { log = () => {} }: { log?: (msg: 
             const result = await tool.handler(tracker, args as never);
             return reply(toolResult(result, false));
           } catch (err) {
-            if (!(err instanceof ToolError)) {
-              log(`tool ${tool.name} failed: ${errorText(err)}`);
-              tracker.reportCrash(err, { where: 'tool', tool: tool.name });
-            }
+            if (!(err instanceof ToolError)) log(`tool ${tool.name} failed: ${errorText(err)}`);
             return reply(toolResult({ error: errorMessage(err) }, true));
           }
         }

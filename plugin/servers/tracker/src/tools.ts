@@ -2,6 +2,9 @@
 
 import { openBoard } from './board-launch.ts';
 import type { CapabilitiesConfig } from './config.ts';
+import { EXPORT_TABLES, exportData } from './export.ts';
+import { FOLLOW_UP_AFTER_DAYS, followUps, INTERVIEW_OUTCOME_AFTER_DAYS } from './followups.ts';
+import { funnelStats } from './funnel.ts';
 import type { LegacyQueueFile } from './legacy.ts';
 import { importLegacy } from './legacy.ts';
 import { lintProse } from './lint.ts';
@@ -40,7 +43,6 @@ const roleFields = {
 export const SCHEMAS = {
   setup_status: obj({}),
   record_setup_decision: obj({ key: str('setup_status item key'), decision: str("The user's decision, in their words") }, ['key', 'decision']),
-  set_usage_analytics: obj({ allow: bool("true only on the user's explicit yes; false to decline or revoke") }, ['allow']),
   start_run: obj({
     kind: str('sweep | apply | triage | setup | calibration'),
     capabilities: typed<CapabilitiesConfig>('object', '{connectors: {gmail, calendar, linkedin}, browser: "claude-in-chrome" | "built-in" | null, local_folder: bool}'),
@@ -69,7 +71,7 @@ export const SCHEMAS = {
     reason: str('Why, one sentence'),
     evidence: str('Verbatim quote with URL, rule:<id>, or confirmation text'),
     outcome: str(`${OUTCOMES.join(' | ')} (closed only)`),
-    category: str('For drops: location | pay | industry | role_shape | stack | culture | duplicate | gated | other'),
+    category: str('For drops: location | pay | industry | role_shape | stack | culture | language | employment_type | duplicate | gated | other'),
     question: str('For queued: the single blocking question for the user'),
     blocked_by: str('For queued: browser | user | login | captcha | other'),
     location_line: str('verified only: verbatim from the ATS'),
@@ -115,6 +117,19 @@ export const SCHEMAS = {
   lint_prose: obj({ text: str('Text to lint'), max_words: int('Word limit') }, ['text']),
   open_items: obj({ stale_after_days: int('Queue items untouched this long are listed as stale (default 14)') }),
   pipeline_summary: obj({ stale_after_days: int('Default 14') }),
+  follow_ups: obj({
+    after_days: int(`Days with no reply and no activity before an application is due a follow-up (default ${FOLLOW_UP_AFTER_DAYS})`),
+    interview_after_days: int(`Days after an interview's start before a missing outcome is listed (default ${INTERVIEW_OUTCOME_AFTER_DAYS})`),
+  }),
+  funnel_stats: obj({
+    since: str('YYYY-MM-DD, a day in filters.timezone: count from the start of this day. Omit for all history'),
+    until: str('YYYY-MM-DD, a day in filters.timezone: count through the end of this day. Omit for up to now'),
+  }),
+  export_data: obj({
+    format: str('json (one file, for backups) | csv (one file per table, for spreadsheets)'),
+    tables: strList(`Any of ${EXPORT_TABLES.join(' | ')}. Omit for all`),
+    name: str('File name stem, letters, digits, - and _ only. Omit for a timestamped one; an existing file is never overwritten'),
+  }, ['format']),
   open_board: obj({ open: bool('true also opens it in the default browser. Only when the user asked to see the board now; never in a scheduled run.') }),
   add_rule: obj({ text: str('The rule, imperative'), reason: str('Why (the incident or the user words)'), example: str('Concrete example'), types: strList(`Which consumers read it: ${RULE_TYPES.join(' | ')}. Omit for global`), added_by: str('user | pipeline') }, ['text', 'reason']),
   list_rules: obj({
@@ -195,7 +210,6 @@ const defineTool = <N extends ToolName>(name: N, description: string, handler: (
 export const TOOLS: Tool[] = [
   defineTool('setup_status', 'Checklist of what is configured, missing or degraded. Call at the start of every run.', (t) => t.setupStatus()),
   defineTool('record_setup_decision', 'Record the user decision for an amber setup item (e.g. "no browser, accepted"), so setup can complete.', (t, a) => t.recordDecision(a)),
-  defineTool('set_usage_analytics', 'Record the user\'s answer on anonymized usage data collection for improving the tool (usage events and crash reports). Only on the user\'s own words, never assumed. Asked first in setup, so the setup steps are counted too; the user can revoke any time.', (t, a) => t.setUsageAnalytics(a)),
   defineTool('start_run', 'Start a run and record detected capabilities (connectors, browser, local folder). Returns run_id.', (t, a) => t.startRun(a)),
   defineTool('finish_run', 'Close a run with a one-paragraph summary.', (t, a) => t.finishRun(a)),
   defineTool('get_profile', 'All config sections: filters, prefs, writing, accounts, autonomy, schedule, sources, capabilities.', (t) => t.getProfile()),
@@ -220,6 +234,9 @@ export const TOOLS: Tool[] = [
   defineTool('lint_prose', 'Lint outbound prose: em/en dashes, "not X but Y", fake-candid openers, volunteered gaps, length.', (_t, a) => lintProse(a.text, { max_words: a.max_words })),
   defineTool('open_items', 'Queue (fresh and stale), unverified drafts, interviews to book, upcoming interviews.', (t, a) => t.openItems(a)),
   defineTool('pipeline_summary', 'Counts by status, live processes, rejections, queue (fresh and stale).', (t, a) => t.pipelineSummary(a)),
+  defineTool('follow_ups', 'What to chase: applications still at applied with no employer reply and no activity for after_days, and scheduled interviews that are over with nothing recorded since. Oldest first, with days waiting. Complements open_items; read-only.', (t, a) => followUps(t, a)),
+  defineTool('funnel_stats', 'Local conversion analytics from the status history: counts per status, how many cards reached each stage and stage-to-stage rates, reply and interview rates and median days from applied, reply rate by source, and applications per week. since/until bound it by local day. Read-only.', (t, a) => funnelStats(t, a)),
+  defineTool('export_data', 'Export roles, companies, events and interviews to files in exports/ next to the tracker database (owner-only), as JSON for a backup or CSV for a spreadsheet. Only when the user asks. Returns the file paths and row counts.', (t, a) => exportData(t, a)),
   defineTool('open_board', 'Start the local kanban board (or reuse the running one). With open: true it opens in the user\'s browser and the link is not returned; otherwise the link is returned. The user drags cards to move roles; moves follow transition\'s rules and are recorded as the user\'s. The board stops after 30 idle minutes.', (t, a) => openBoard({ dbPath: t.dbPath, open: a.open ?? false })),
   defineTool('add_rule', 'Add a user preference or correction as a rule, with reason and example. types says which consumers read it; omit it for global.', (t, a) => t.addRule(a)),
   defineTool('list_rules', 'Rules with provenance and types, one page at a time: at most 10 by default, limit up to 50. Follow next_cursor until it is null; never act on a partial set. types filters to those consumers plus global rules, which are always included. If rules changed mid-listing, the cursor is refused: restart without it. An entry with requires_detail is too large to list: read it with get_rule. Results stay under 24 KiB, so a page can hold fewer rules than limit; next_cursor says whether more remain.', (t, a) => t.listRules(a)),

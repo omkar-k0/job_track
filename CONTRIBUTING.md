@@ -1,12 +1,14 @@
 # Contributing
 
-Thanks for helping. This is a small project, so the process is light.
+Thanks for helping. This is a small project, so the process is light. Use the issue tracker at
+[omkar-k0/job_track](https://github.com/omkar-k0/job_track/issues).
 
 ## Before you start
 
 - For anything bigger than a fix, open an issue first so we can agree on the shape.
 - Read the hard rules in the [README](README.md#what-it-wont-do). Changes that weaken a gate
   (sending, submitting without approval, consent, personal data, guarded deletes) will not be merged.
+- **No telemetry.** The plugin sends nothing anywhere: no analytics, no crash reports. Do not add any.
 - **Never commit personal data.** No real CVs, application logs, recruiter emails, company names from
   your own search, or tracker databases. Test fixtures use made-up companies.
 
@@ -39,6 +41,11 @@ Google Chrome and are skipped without it.
   `package.json` carry the same version; a test checks it.
 - **Hermes and DeepSeek Harness.** Changes to hooks or skill wiring should keep every host working. See
   [`docs/hermes.md`](docs/hermes.md) and [`docs/dsh.md`](docs/dsh.md).
+
+## Documentation
+
+Setup and usage docs are in [`docs/usage.md`](docs/usage.md). `tests/docs-sync.test.ts` checks that it lists
+every shipped command and the Node requirement, so update it when you add a command.
 
 ## Source adapters
 

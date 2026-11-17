@@ -3,6 +3,9 @@
 # The plugin stores these in the tracker with save_config(section, data); /job-tracker:setup fills them
 # in with you. This file documents the shape. Every value below is a neutral placeholder: replace it,
 # or leave it null/empty to be asked during setup.
+#
+# Keys marked [EU] are read by the early-career and German/EU-market prompts (employment types, language
+# requirements, weekly hours, enrolment, application language). See docs/germany.md.
 
 filters:                         # HARD filters: a miss drops the role
   work_mode: [remote]            # any of: remote | hybrid | onsite
@@ -16,13 +19,18 @@ filters:                         # HARD filters: a miss drops the role
   pay_floor:
     amount: null                 # your minimum, e.g. 80000
     currency: XXX                # ISO 4217, e.g. EUR, USD, GBP
-    period: year                 # year | month | day | hour
+    period: year                 # year | month | day | hour (use hour for werkstudent and internship searches)
     basis: gross                 # gross | net
+    contract_type: null          # free text, e.g. werkstudent
   pay_rule_with_equity: "floor unchanged; equity may justify 'negotiable' answer inside band"
   band_rule: "drop only if the band MAXIMUM is below floor; straddling bands are kept"
   excluded_industries: []        # e.g. [gambling, crypto, defense, tobacco]
   excluded_role_shapes: []       # e.g. [people_manager]; engineers also [backend_only, frontend_only, forward_deployed]
   culture_red_lines: []          # e.g. [stated_overtime_expectation, overtime_screening_question]
+  employment_types: []           # [EU] HARD. Types you want: werkstudent | internship | pflichtpraktikum | freiwilliges_praktikum | full_time | part_time | contract | thesis. Empty = no type filter
+  weekly_hours: {min: null, max: null}  # [EU] HARD. Hours per week you can work, e.g. {min: 10, max: 20}; a posting that cannot fit drops
+  enrolled: null                 # [EU] HARD for werkstudent, pflichtpraktikum and thesis roles that require enrolment: true | false | null (ask)
+  languages: []                  # [EU] HARD. Languages you can work in, with a CEFR level A1..C2 or native, e.g. [{language: de, level: B2}, {language: en, level: C1}]. A posting that requires a language you lack, or a higher level than you list, drops
 
 prefs:                           # SOFT preferences: affect the score only
   titles: []                     # e.g. ["product engineer", "staff nurse", "brand designer"]
@@ -38,6 +46,7 @@ writing:
   voice_profile: null            # set by setup if you share writing samples (stored as the "voice" document)
   humanizer: true                # run a humanizer pass on all outbound prose
   max_words_cover_note: 200
+  language: auto                 # [EU] auto | de | en. auto = write in the language of the posting
   never_volunteer_gaps: true     # gaps go in internal notes, never to employers
   signature_style: name_only     # no bare URLs in email signatures (Gmail rewrites them)
 
@@ -58,12 +67,17 @@ schedule:
   report_delivery: artifact      # artifact | file | email_draft (a draft to yourself, never sent)
 
 sources:                         # chosen in setup from the source-roles catalogue
-  enabled: []                    # source IDs, e.g. [linkedin, ats_boards, hn, waas, wellfound, wwr, indeed, builtin]
-                                 # IDs: linkedin ats_boards hn waas wellfound wttj wwr indeed glassdoor ziprecruiter
-                                 #      dice builtin usajobs jack-and-jill jobcopilot
-  need_login: []                 # sources that need you logged in in the browser
+  enabled: []                    # source IDs, e.g. [linkedin, ats_boards, arbeitsagentur, stepstone, stellenwerk, berlinstartupjobs]
+                                 # IDs: linkedin ats_boards hn
+                                 #      arbeitsagentur stepstone indeed_de xing
+                                 #      stellenwerk absolventa jobteaser eures wearedevelopers berlinstartupjobs
+                                 #      waas wellfound wttj wwr
+                                 #      indeed glassdoor ziprecruiter dice builtin usajobs
+                                 #      jack-and-jill jobcopilot
+  need_login: []                 # sources that need you logged in in the browser, e.g. [xing, jobteaser]
   disabled: [justjoin, nofluffjobs, remoteok, remotive, monster, careerbuilder, simplyhired]
-  boards: []                     # employer job boards for ats_boards, e.g. [https://jobs.ashbyhq.com/<company>]
+  boards: []                     # employer job boards for ats_boards, e.g. [https://jobs.ashbyhq.com/<company>, https://<company>.jobs.personio.de,
+                                 #   https://jobs.smartrecruiters.com/<company>, a Workday career site]; also a university career-service page
 
 capabilities:                    # written by start_run detection, not by you
   connectors: {}

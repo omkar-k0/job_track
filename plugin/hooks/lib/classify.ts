@@ -86,16 +86,62 @@ export function resolveLabel(input: ToolInput, steps: ToolStep[]): string | null
   return null;
 }
 
-export const SUBMIT = /\b(submit|send application|apply now|easy apply|apply for (?:this )?(?:job|role|position)|complete (?:my )?application|finish (?:my )?application|confirm (?:and )?(?:submit|apply)|send my application)\b|^apply$/i;
+// German forms. `\b` is ASCII-only in a non-`u` regex, so a boundary next to ä, ö, ü or ß is spelled out
+// with these lookarounds, and each umlaut also matches its transliteration (ae, oe, ue, ss) and the bare vowel.
+// Personal and consent stems carry no right boundary because German joins nouns (Datenschutzeinwilligung).
+const NOT_AFTER_LETTER = '(?<![a-z\u00e4\u00f6\u00fc\u00df])';
+const NOT_BEFORE_LETTER = '(?![a-z\u00e4\u00f6\u00fc\u00df])';
+const de = (body: string, rightEdge = false) => `${NOT_AFTER_LETTER}(?:${body})${rightEdge ? NOT_BEFORE_LETTER : ''}`;
+const AE = '(?:\u00e4|ae?)';
+const OE = '(?:\u00f6|oe?)';
+const UE = '(?:\u00fc|ue?)';
+const SS = '(?:\u00df|ss)';
+
+const SUBMIT_EN = /\b(submit|send application|apply now|easy apply|apply for (?:this )?(?:job|role|position)|complete (?:my )?application|finish (?:my )?application|confirm (?:and )?(?:submit|apply)|send my application)\b|^apply$/i;
+// Mirrors the English list: "Absenden" is "Submit", "Jetzt bewerben" is "Apply now", a bare "Bewerben" is "Apply".
+const SUBMIT_DE = `${de(`bewerbung\\s+(?:absenden|abschicken|einreichen|senden|verschicken|abschlie${SS}en)|jetzt\\s+bewerben|einfach\\s+bewerben|schnellbewerbung|absenden|abschicken`, true)}|^bewerben$`;
+export const SUBMIT = new RegExp(`${SUBMIT_EN.source}|${SUBMIT_DE}`, 'i');
 export const SEND = /^(send|send message|send now|send reply|send email|send invitation|send invite|send inmail|connect|reply)$/i;
 export const DELETE = /\b(delete|remove|trash|discard|archive|bulk delete|clear (?:all|selected))\b/i;
 export const CONFIRM = /\b(confirm|yes|ok|okay|delete|remove|continue)\b/i;
-export const PERSONAL = /\b(passport|nationality|citizenship|date of birth|birth ?date|dob|age|marital|gender|sex|pronouns?|national id|id (?:number|card)|identity (?:card|number|document)|pesel|ssn|social security|national insurance|tax (?:id|number)|race|ethnicity|ethnic|religion|disabilit(?:y|ies)|veteran)\b/i;
-export const PERSONAL_OPTION = /^(male|female|man|woman|non-binary|nonbinary|married|single|divorced|widowed|in a relationship)$/i;
-export const CONSENT = /\b(consent|i agree to (?:the )?record|record(?:ing)? (?:of )?(?:the |this |my )?(?:interview|call|conversation)|marketing|newsletter|talent (?:pool|community|network)|future (?:opportunities|roles|positions|openings|vacancies)|retain (?:my|your)|keep (?:my|your) (?:data|information|details|cv|resume|application)|share (?:my|your) (?:data|profile|information) with)\b/i;
+const PERSONAL_EN = /\b(passport|nationality|citizenship|date of birth|birth ?date|dob|age|marital|gender|sex|pronouns?|national id|id (?:number|card)|identity (?:card|number|document)|pesel|ssn|social security|national insurance|tax (?:id|number)|race|ethnicity|ethnic|religion|disabilit(?:y|ies)|veteran)\b/i;
+const PERSONAL_DE = [
+  de('geburts(?:datum|ort|tag|jahr|name)'),
+  de(`staatsangeh${OE}rigkeit`),
+  de(`nationalit${AE}t`),
+  de('familienstand'),
+  de('geschlecht'),
+  de('anrede'),
+  de(`konfession|religions?zugeh${OE}rigkeit`),
+  de('(?:schwer)?behinder'),
+  de('steuer(?:-|\\s)?(?:id|identifikationsnummer|nummer|nr)'),
+  de('sozialversicherungs(?:nummer|ausweis)|sv(?:-|\\s)?nummer|rentenversicherungsnummer'),
+  de('matrikel(?:nummer|nr)'),
+  de('(?:personal)?ausweis|reisepass'),
+].join('|');
+export const PERSONAL = new RegExp(`${PERSONAL_EN.source}|${PERSONAL_DE}`, 'i');
+export const PERSONAL_OPTION = /^(male|female|man|woman|non-binary|nonbinary|married|single|divorced|widowed|in a relationship|m\u00e4nnlich|maennlich|weiblich|divers|verheiratet|ledig|geschieden|verwitwet|herr|frau)$/i;
+const CONSENT_EN = /\b(consent|i agree to (?:the )?record|record(?:ing)? (?:of )?(?:the |this |my )?(?:interview|call|conversation)|marketing|newsletter|talent (?:pool|community|network)|future (?:opportunities|roles|positions|openings|vacancies)|retain (?:my|your)|keep (?:my|your) (?:data|information|details|cv|resume|application)|share (?:my|your) (?:data|profile|information) with)\b/i;
+// The same consents in German. Like the English list it does not match a bare privacy-policy or terms
+// acknowledgement (Datenschutzerklärung, AGB, "Ich stimme zu"): those match only together with one of these.
+const CONSENT_DE = [
+  'einwillig', // Einwilligung, einwilligen, Datenschutzeinwilligung
+  de('(?:ich\\s+)?willige\\s+(?:\\S+\\s+){0,6}?ein'),
+  'zustimmung', // the noun is "consent"; Datenschutzzustimmung
+  `(?:aufzeichnung|aufnahme|mitschnitt)\\w*\\s+(?:de[sr]\\s+|dieses\\s+|meines\\s+|eines\\s+)?(?:video-?)?(?:gespr${AE}ch|interview|telefonat|anruf|call)`,
+  `(?:gespr${AE}ch|interview|telefonat)\\w*\\s+(?:\\S+\\s+){0,3}?aufgezeichnet`,
+  'marketing',
+  de('werb(?:ung|lich|e-?mail)'), // not inside "Bewerbung"
+  'newsletter',
+  `talent(?:-|\\s)?(?:pool|netzwerk|community|network)|(?:bewerber|kandidaten)pool`,
+  de(`(?:zuk${UE}nftig|k${UE}nftig)e[nrs]?\\s+(?:stellen|positionen|vakanzen|jobs?|vacancies|m${OE}glichkeiten|karriere)`),
+  `(?:speicherung|aufbewahrung|weitergabe|${UE}bermittlung)\\s+(?:meiner|ihrer|deiner)\\s+(?:daten|unterlagen|bewerbungsunterlagen|angaben|informationen|bewerbung)`,
+  `(?:meine|ihre|deine)\\s+(?:daten|unterlagen|bewerbungsunterlagen|angaben|informationen|bewerbung)\\s+(?:\\S+\\s+){0,8}?(?:speicher|aufbewahr|aufheben|weiterzugeben|weitergeben|weitergegeben|${UE}bermitt)`,
+].join('|');
+export const CONSENT = new RegExp(`${CONSENT_EN.source}|${CONSENT_DE}`, 'i');
 const DECLINE = /^(no|decline|i do not consent|i don't consent|do not|don't|opt out|no thanks|not now)\b/i;
 
-export const truthy = (v: unknown) => v === true || /^(true|yes|on|checked|1|y|i agree|agree|accept)$/i.test(String(v ?? '').trim());
+export const truthy = (v: unknown) => v === true || /^(true|yes|on|checked|1|y|i agree|agree|accept|ja|ich stimme zu|stimme zu|zustimmen|akzeptieren|akzeptiert|einverstanden|ich bin einverstanden)$/i.test(String(v ?? '').trim());
 export const isDecline = (name: string | null | undefined) => DECLINE.test(String(name || '').trim());
 
 export const ATS_HOST = /(^|\.)(ashbyhq\.com|greenhouse\.io|lever\.co|workable\.com|teamtailor\.com|personio\.(?:de|com)|join\.com|myworkdayjobs\.com|smartrecruiters\.com|recruitee\.com|bamboohr\.com|breezy\.hr|jobvite\.com|icims\.com|typeform\.com|tally\.so)$/i;

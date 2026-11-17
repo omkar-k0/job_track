@@ -212,6 +212,25 @@ test('lint reports a gap once when several gap patterns match the same words', (
   assert.equal(two.length, 2, 'separate gaps are still reported separately');
 });
 
+test('lint warns on German Anschreiben stock phrases, with umlauts or ae/oe/ss, and passes plain German', () => {
+  for (const cliche of [
+    'Sehr geehrte Frau Muster, hiermit bewerbe ich mich auf die Stelle als Werkstudent.',
+    'Mit großem Interesse habe ich Ihre Anzeige gelesen.',
+    'mit grossem Interesse',
+    'Ich bin teamfähig, belastbar und flexibel.',
+    'Ich arbeite zuverlaessig und motiviert.',
+    'Über eine Einladung zu einem persönlichen Vorstellungsgespräch freue ich mich sehr.',
+    'Ich freue mich auf eine Einladung zum Vorstellungsgespraech.',
+    'Ich bin auf der Suche nach einer neuen Herausforderung.',
+  ]) {
+    const r = lintProse(cliche);
+    assert.ok(r.issues.some((i) => i.kind === 'stock_phrase' && i.severity === 'warn' && /German/.test(i.hint)), cliche);
+    assert.equal(r.ok, true, 'stock phrases warn, they do not fail');
+  }
+  const plain = 'Im Praktikum bei einem Logistikdienstleister habe ich die Tourenplanung in Python neu geschrieben. Ihre Ausschreibung nennt genau diese Arbeit. Ich kann ab Oktober 20 Stunden pro Woche arbeiten.';
+  assert.deepEqual(lintProse(plain).issues, []);
+});
+
 test('lint flags bare URLs in a signature without catastrophic backtracking', () => {
   const urls = (text: string) => lintProse(text).issues.filter((i) => i.kind === 'bare_url_signature').length;
   assert.equal(urls('Thanks,\nAda\nhttps://ada.example https://github.com/ada'), 1);
@@ -321,6 +340,34 @@ test('config validation rejects unknown fields and unattended submit', () => {
   assert.throws(() => t.saveConfig({ section: 'prefs', data: { titel: [] } }), /unknown field/);
   assert.throws(() => t.saveConfig({ section: 'filters', data: { remote: 'fully_remote' } }), /Expected filters fields: work_mode \(required\): array of remote\|hybrid\|onsite, .*pay_floor \(required\): \{ amount \(required\): number/);
   assert.throws(() => t.saveConfig({ section: 'autonomy', data: { unattended: ['search', 'submit'] } }), /always need the user/);
+});
+
+test('config accepts the German/EU early-career keys and rejects bad values for them', () => {
+  const t = fresh();
+  const filters = {
+    work_mode: ['hybrid'],
+    residence_country: 'DE',
+    timezone: 'Europe/Berlin',
+    pay_floor: { amount: 15, currency: 'EUR', period: 'hour', basis: 'gross', contract_type: 'werkstudent' },
+    employment_types: ['werkstudent', 'pflichtpraktikum', 'thesis'],
+    weekly_hours: { min: 10, max: 20 },
+    enrolled: true,
+    languages: [{ language: 'de', level: 'B2' }, { language: 'en', level: 'native' }],
+  };
+  t.saveConfig({ section: 'filters', data: filters });
+  assert.deepEqual(t.getProfile().filters?.languages, filters.languages);
+  t.saveConfig({ section: 'filters', data: { ...filters, weekly_hours: { min: null, max: null }, enrolled: null, employment_types: [] } });
+  t.saveConfig({ section: 'writing', data: { language: 'de' } });
+  assert.equal(t.getProfile().writing?.language, 'de');
+  // The pay check reads only pay_floor, so the new keys leave it working.
+  assert.equal(t.checkPay({ comp_min: 16, comp_max: 18, currency: 'EUR', period: 'hour' }).verdict, 'keep');
+  assert.throws(() => t.saveConfig({ section: 'filters', data: { ...filters, employment_types: ['minijob'] } }), /filters\.employment_types\[0\]: "minijob" is not one of werkstudent/);
+  assert.throws(() => t.saveConfig({ section: 'filters', data: { ...filters, languages: [{ language: 'de', level: 'fluent' }] } }), /filters\.languages\[0\]\.level: "fluent" is not one of A1/);
+  assert.throws(() => t.saveConfig({ section: 'filters', data: { ...filters, languages: [{ language: 'de' }] } }), /filters\.languages\[0\]\.level: required/);
+  assert.throws(() => t.saveConfig({ section: 'filters', data: { ...filters, weekly_hours: { min: '10' } } }), /filters\.weekly_hours\.min: expected number or null/);
+  assert.throws(() => t.saveConfig({ section: 'filters', data: { ...filters, weekly_hours: { hours: 10 } } }), /filters\.weekly_hours\.hours: unknown field/);
+  assert.throws(() => t.saveConfig({ section: 'filters', data: { ...filters, enrolled: 'yes' } }), /filters\.enrolled: expected boolean or null/);
+  assert.throws(() => t.saveConfig({ section: 'writing', data: { language: 'fr' } }), /writing\.language: "fr" is not one of auto, de, en/);
 });
 
 test('source health: three consecutive failures degrade a source, and only changes are reported', () => {
@@ -538,4 +585,20 @@ test('auto_apply is an explicit boolean persisted in autonomy, with review first
   assert.equal(t.getProfile().autonomy?.auto_apply, false);
   t.run("UPDATE profile SET value = ? WHERE key = 'autonomy'", JSON.stringify({ unattended: ['search'] }));
   assert.notEqual(t.getProfile().autonomy?.auto_apply, true, 'old profiles do not opt in');
+});
+
+test('open_items and pipeline_summary refuse an out-of-range stale_after_days instead of crashing on an invalid date', async () => {
+  const t = fresh();
+  const c = call(t);
+  for (const tool of ['open_items', 'pipeline_summary']) {
+    for (const days of [2 ** 53, -1, 1e7 + 1]) assert.match((await c(tool, { stale_after_days: days })).error, /stale_after_days must be a whole number of days from 0 to 10000000/, `${tool} ${days}`);
+    for (const days of [0, 1e7]) assert.equal((await c(tool, { stale_after_days: days })).error, '');
+  }
+});
+
+test('setup has no analytics question: setup_status does not list usage_analytics and set_usage_analytics is gone', async () => {
+  const t = fresh();
+  assert.ok(!t.setupStatus().items.some((i) => i.key === 'usage_analytics'));
+  const res = (await makeHandler(t)({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'set_usage_analytics', arguments: { allow: true } } })) as RpcResponse;
+  assert.match(String(res.error?.message), /Unknown tool/);
 });

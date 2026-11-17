@@ -32,23 +32,6 @@
     }
   },
   {
-    "name": "set_usage_analytics",
-    "description": "Record the user's answer on anonymized usage data collection for improving the tool (usage events and crash reports). Only on the user's own words, never assumed. Asked first in setup, so the setup steps are counted too; the user can revoke any time.",
-    "inputSchema": {
-      "type": "object",
-      "properties": {
-        "allow": {
-          "type": "boolean",
-          "description": "true only on the user's explicit yes; false to decline or revoke"
-        }
-      },
-      "required": [
-        "allow"
-      ],
-      "additionalProperties": false
-    }
-  },
-  {
     "name": "start_run",
     "description": "Start a run and record detected capabilities (connectors, browser, local folder). Returns run_id.",
     "inputSchema": {
@@ -439,7 +422,7 @@
         },
         "category": {
           "type": "string",
-          "description": "For drops: location | pay | industry | role_shape | stack | culture | duplicate | gated | other"
+          "description": "For drops: location | pay | industry | role_shape | stack | culture | language | employment_type | duplicate | gated | other"
         },
         "question": {
           "type": "string",
@@ -733,6 +716,72 @@
         }
       },
       "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "follow_ups",
+    "description": "What to chase: applications still at applied with no employer reply and no activity for after_days, and scheduled interviews that are over with nothing recorded since. Oldest first, with days waiting. Complements open_items; read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "after_days": {
+          "type": "integer",
+          "description": "Days with no reply and no activity before an application is due a follow-up (default 7)"
+        },
+        "interview_after_days": {
+          "type": "integer",
+          "description": "Days after an interview's start before a missing outcome is listed (default 1)"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "funnel_stats",
+    "description": "Local conversion analytics from the status history: counts per status, how many cards reached each stage and stage-to-stage rates, reply and interview rates and median days from applied, reply rate by source, and applications per week. since/until bound it by local day. Read-only.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "since": {
+          "type": "string",
+          "description": "YYYY-MM-DD, a day in filters.timezone: count from the start of this day. Omit for all history"
+        },
+        "until": {
+          "type": "string",
+          "description": "YYYY-MM-DD, a day in filters.timezone: count through the end of this day. Omit for up to now"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "export_data",
+    "description": "Export roles, companies, events and interviews to files in exports/ next to the tracker database (owner-only), as JSON for a backup or CSV for a spreadsheet. Only when the user asks. Returns the file paths and row counts.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "type": "string",
+          "description": "json (one file, for backups) | csv (one file per table, for spreadsheets)"
+        },
+        "tables": {
+          "type": "array",
+          "description": "Any of roles | companies | events | interviews. Omit for all",
+          "items": {
+            "type": "string"
+          }
+        },
+        "name": {
+          "type": "string",
+          "description": "File name stem, letters, digits, - and _ only. Omit for a timestamped one; an existing file is never overwritten"
+        }
+      },
+      "required": [
+        "format"
+      ],
       "additionalProperties": false
     }
   },
