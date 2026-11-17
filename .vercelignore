@@ -1,0 +1,6 @@
+# The web demo build (dev/build-web.mjs) needs only dev/ and plugin/servers/tracker/src/board/.
+tests/
+docs/
+.github/
+dev/node_modules/
+web-dist/

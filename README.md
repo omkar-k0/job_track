@@ -103,6 +103,16 @@ See the [privacy policy](PRIVACY.md).
 | Personal data and consent | Passport, nationality, age, DOB, gender, marital, ID fields denied; consent boxes stay unticked unless you allow them. |
 | Stop | A sweep session cannot end until every role has an event and the report was rendered. |
 
+## Web demo
+
+A read-only demo of the board runs as a static page, for a look before installing. It uses made-up
+companies and roles, and its moves and notes live only in your browser tab until you reload. The real
+Laufbahn runs on your own machine; the demo shares only the board's page, not the plugin or any data.
+
+Build it with `node dev/build-web.mjs` (no install needed). It copies the board into `web-dist/` and adds a
+small script that answers the board's API from the fixtures in `dev/web-demo/`. To deploy it on Vercel,
+see [docs/deploy.md](docs/deploy.md).
+
 ## Development
 
 ```

@@ -13,3 +13,6 @@ docs/superpowers/
 /plugin/package-lock.json
 .superpowers/
 .env
+
+# Web demo build output (dev/build-web.mjs)
+/web-dist/
