@@ -64,7 +64,7 @@ export function exportData(t: Tracker, { format, tables, name }: ArgsFor<'export
   if (!t.dbPath || t.dbPath === ':memory:') throw new ToolError('This tracker runs in memory, so there is no tracker folder to export into.');
 
   const exported_at = new Date().toISOString();
-  const stem = name ?? `job-tracker-${exported_at.replace(/[:.]/g, '-')}`;
+  const stem = name ?? `laufbahn-${exported_at.replace(/[:.]/g, '-')}`;
   const dir = join(dirname(resolve(t.dbPath)), 'exports');
   // One read transaction, so the tables agree with each other even while another session writes.
   // Table names come from EXPORT_TABLES only, never from the caller's text.

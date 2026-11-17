@@ -7,7 +7,7 @@
 - [Your data](#your-data)
 - [Developer docs](#developer-docs)
 
-Job Tracker is a Claude Code and Hermes Agent plugin for a disciplined job search. It finds roles that fit
+Laufbahn is a Claude Code and Hermes Agent plugin for a disciplined job search. It finds roles that fit
 your hard filters, verifies each one on the employer's own posting, and prepares tailored applications. It
 submits only through the employer's official apply flow, using your saved auto-apply choice or your approval
 for each application.
@@ -19,7 +19,7 @@ the Anschreiben conventions and the German form rules.
 ## Requirements
 
 - **Claude Code 2.1.295 or newer** (Desktop app or CLI), or **Hermes Agent**.
-- **Node.js 22.18 or newer.** If it is missing, `/job-tracker:setup` offers to install it on macOS and
+- **Node.js 22.18 or newer.** If it is missing, `/laufbahn:setup` offers to install it on macOS and
   Windows. The tracker uses built-in `node:sqlite` and runs TypeScript directly, with no runtime npm
   dependencies.
 - **Recommended:** Gmail and Google Calendar connectors for recruiter replies, interview invites and reply
@@ -35,61 +35,61 @@ the Anschreiben conventions and the German form rules.
 1. Open the [Claude desktop app](https://claude.com/download) and sign in. Choose **Code**, select
    **Local**, then choose a folder for your job search.
 2. Next to the message box, open **+ → Plugins → Add plugin**. Add the repository as a marketplace, then
-   install **job-tracker** for your user account. The repository URL is
-   `https://github.com/omkar-k0/job_track`.
-3. Start a new chat and type `/job-tracker:setup` to begin.
+   install **laufbahn** for your user account. The repository URL is
+   `https://github.com/omkar-k0/laufbahn`.
+3. Start a new chat and type `/laufbahn:setup` to begin.
 
 ### Claude Code (CLI)
 
 ```
-/plugin marketplace add omkar-k0/job_track
-/plugin install job-tracker@job_track
+/plugin marketplace add omkar-k0/laufbahn
+/plugin install laufbahn@laufbahn
 ```
 
-Then run `/job-tracker:setup` inside Claude Code.
+Then run `/laufbahn:setup` inside Claude Code.
 
 ### Hermes Agent
 
 ```bash
-git clone https://github.com/omkar-k0/job_track.git
-cd job_track
+git clone https://github.com/omkar-k0/laufbahn.git
+cd laufbahn
 plugin/scripts/hermes-install.sh
 ```
 
-Restart Hermes and type `/job-tracker:setup`. Details and differences from Claude Code are in the
+Restart Hermes and type `/laufbahn:setup`. Details and differences from Claude Code are in the
 [Hermes guide](hermes.md). A DeepSeek Harness install is described in [dsh.md](dsh.md).
 
 ## Setup walkthrough
 
-`/job-tracker:setup` walks through CV import, hard filters, preferences, writing rules, accounts (including
+`/laufbahn:setup` walks through CV import, hard filters, preferences, writing rules, accounts (including
 which calendar your invites land on), connectors, browser check, sources, autonomy and the daily schedule,
 then runs a 5-result calibration sweep.
 
 - Every "no, because..." becomes a rule.
-- You can stop at any point and run `/job-tracker:setup` again to resume.
-- Already tracking in a markdown table? `/job-tracker:import <folder>` brings in an `applied-log.md`,
+- You can stop at any point and run `/laufbahn:setup` again to resume.
+- Already tracking in a markdown table? `/laufbahn:import <folder>` brings in an `applied-log.md`,
   preferences, queue notes, and your profile.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `/job-tracker:setup` | Guided setup; resumable. |
-| `/job-tracker:sweep [--limit N]` | The daily run: inbox, sourcing, verify, score, prepare, report, audit. Submits only when you enabled `autonomy.auto_apply`; otherwise never submits. |
-| `/job-tracker:apply [role-id]` | Interactive apply: verify, write, fill, read back, then submit automatically if enabled or wait for your approval. |
-| `/job-tracker:approve <role-id>` | **You** type this on the filled form to allow one submit attempt for that role and page. |
-| `/job-tracker:triage <source>` | Reconcile and clean a tracker board with the delete guard. |
-| `/job-tracker:prep <company>` | Interview prep from your stories. |
-| `/job-tracker:status` | Pipeline summary and open items. |
-| `/job-tracker:board` | Board in your browser. Drag a card to any lane to move a role; see [The board](#the-board). |
-| `/job-tracker:cover-letter <role-id>` | Cover letter, optionally as a one-page PDF. |
-| `/job-tracker:correct` | Turn your override into a rule with a reason and example. |
-| `/job-tracker:allow-consent` | Approve consent boxes for a specific application form. |
-| `/job-tracker:import <folder>` | Import an existing markdown tracker. |
+| `/laufbahn:setup` | Guided setup; resumable. |
+| `/laufbahn:sweep [--limit N]` | The daily run: inbox, sourcing, verify, score, prepare, report, audit. Submits only when you enabled `autonomy.auto_apply`; otherwise never submits. |
+| `/laufbahn:apply [role-id]` | Interactive apply: verify, write, fill, read back, then submit automatically if enabled or wait for your approval. |
+| `/laufbahn:approve <role-id>` | **You** type this on the filled form to allow one submit attempt for that role and page. |
+| `/laufbahn:triage <source>` | Reconcile and clean a tracker board with the delete guard. |
+| `/laufbahn:prep <company>` | Interview prep from your stories. |
+| `/laufbahn:status` | Pipeline summary and open items. |
+| `/laufbahn:board` | Board in your browser. Drag a card to any lane to move a role; see [The board](#the-board). |
+| `/laufbahn:cover-letter <role-id>` | Cover letter, optionally as a one-page PDF. |
+| `/laufbahn:correct` | Turn your override into a rule with a reason and example. |
+| `/laufbahn:allow-consent` | Approve consent boxes for a specific application form. |
+| `/laufbahn:import <folder>` | Import an existing markdown tracker. |
 
 ### The board
 
-`/job-tracker:board` opens a local page in your browser, titled **Laufbahn**: an editorial look in the system serif
+`/laufbahn:board` opens a local page in your browser, titled **Laufbahn**: an editorial look in the system serif
 (Times New Roman), ivory and ink with an oxblood accent, hairline rules and inline icons. It loads no fonts,
 scripts or images from anywhere else.
 
@@ -113,18 +113,23 @@ Ask Claude for these in any chat; they read your local tracker only:
 - **`funnel_stats`:** how many roles reached each stage, conversion between stages, reply rate by source and
   applications per week, optionally for a date range.
 - **`export_data`:** writes your roles, companies, events and interviews as JSON (one file) or CSV (one file per
-  table) to `~/.job-tracker/exports/`. Only when you ask: the files hold your personal data.
+  table) to `~/.laufbahn/exports/`. Only when you ask: the files hold your personal data.
 
 See [tracker-api.md](tracker-api.md) for the full reference.
 
 ## Your data
 
-The tracker runs locally, always. `.mcp.json` starts a stdio server on `~/.job-tracker/tracker.db`. There is
+The tracker runs locally, always. `.mcp.json` starts a stdio server on `~/.laufbahn/tracker.db`. There is
 no network listener and no token. The directory is created owner-only (`0700`) and the database is `0600`,
 because it holds your CV summary, pay floor and application history. Setup keeps a copy of your CV file next
-to it, in `~/.job-tracker/cv/` (`0600`), for forms and email attachments.
+to it, in `~/.laufbahn/cv/` (`0600`), for forms and email attachments.
 
-The board (`/job-tracker:board`) is the one exception: when you start it, it listens on `127.0.0.1` only,
+**Upgrading from job-tracker.** The plugin used to be called job-tracker and kept its data in
+`~/.job-tracker`. If that folder exists and `~/.laufbahn` does not, the plugin keeps using the old folder and
+logs how to move it. It never moves your data itself. To move it, quit Claude and run
+`mv ~/.job-tracker ~/.laufbahn`. The old variable names `JOB_TRACKER_HOME` and `JOB_TRACKER_DB` still work.
+
+The board (`/laufbahn:board`) is the one exception: when you start it, it listens on `127.0.0.1` only,
 with a new token in each link, and stops after 30 idle minutes.
 
 The plugin sends no telemetry: no usage analytics, no crash reports, nothing to the plugin's author. All data

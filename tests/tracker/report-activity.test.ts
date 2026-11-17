@@ -57,7 +57,7 @@ test('a role queued today or with a new question is detailed; one unchanged sinc
   assert.match(report.markdown, /New or changed today/);
   assert.match(report.markdown, /Still waiting \(1\)/);
   assert.doesNotMatch(report.markdown, /Unchanged Acme.*Apply or drop/);
-  assert.match(report.markdown, /job-tracker:board|job-tracker:status/);
+  assert.match(report.markdown, /laufbahn:board|laufbahn:status/);
   assert.match(report.markdown, /\| Queued for you \| 3 \|\n\| New or changed today \| 2 \|/);
 });
 

@@ -1,6 +1,6 @@
 ---
 name: interview-prep
-description: Builds an interview prep sheet for one company and stage from the user's own STAR stories, profile and the role's posting, plus research on the company and the interviewers, with questions to ask. Has an early-career mode (projects, thesis and coursework as stories, typical Werkstudent and internship questions) and a German-language option. Use for /job-tracker:prep, when an interview is booked or a booking link arrives, or when the user asks how to prepare for a specific interview.
+description: Builds an interview prep sheet for one company and stage from the user's own STAR stories, profile and the role's posting, plus research on the company and the interviewers, with questions to ask. Has an early-career mode (projects, thesis and coursework as stories, typical Werkstudent and internship questions) and a German-language option. Use for /laufbahn:prep, when an interview is booked or a booking link arrives, or when the user asks how to prepare for a specific interview.
 ---
 
 # Interview prep

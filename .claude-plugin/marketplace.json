@@ -1,12 +1,12 @@
 {
-  "name": "job_track",
+  "name": "laufbahn",
   "description": "A disciplined job search plugin with a tracker, hard gates and a daily report.",
   "owner": {
     "name": "omkar"
   },
   "plugins": [
     {
-      "name": "job-tracker",
+      "name": "laufbahn",
       "source": "./plugin",
       "description": "High-precision job search with a tracker, hard gates and a daily report."
     }

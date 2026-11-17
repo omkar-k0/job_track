@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
-// Install the job-tracker plugin into DeepSeek Harness (dsh) from this checkout. See docs/dsh.md.
+// Install the laufbahn plugin into DeepSeek Harness (dsh) from this checkout. See docs/dsh.md.
 // Usage: node --no-warnings scripts/dsh-install.ts [--profile <name>]... [--uninstall]
 //
-// 1. Writes every command, skill and agent prompt as a dsh skill in $DSH_HOME/skills/job-tracker-<name>/.
+// 1. Writes every command, skill and agent prompt as a dsh skill in $DSH_HOME/skills/laufbahn-<name>/.
 //    dsh skill names cannot contain a colon, and dsh does not expand ${CLAUDE_PLUGIN_ROOT}, so the copies
 //    are rewritten. Re-run this after editing the markdown.
 // 2. Installs @deepseek-ai/dsh-hooks-claude-code into each profile (default: web and headless) and adds a
@@ -18,11 +18,13 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh');
 const SKILLS = join(DSH_HOME, 'skills');
-const PREFIX = 'job-tracker-';
-const MARKER = '.job-tracker-generated';
+const PREFIX = 'laufbahn-';
+const MARKER = '.laufbahn-generated';
 const BRIDGE = '@deepseek-ai/dsh-hooks-claude-code';
-const BEGIN = '# >>> job-tracker';
-const END = '# <<< job-tracker';
+const BEGIN = '# >>> laufbahn';
+const END = '# <<< laufbahn';
+// The plugin was called job-tracker before it was renamed Laufbahn. Its generated skills and profile block go on every run.
+const LEGACY = { prefix: 'job-tracker-', marker: '.job-tracker-generated', begin: '# >>> job-tracker', end: '# <<< job-tracker' };
 // Only the user types these; dsh's /name is their only entry point when model invocation is off.
 const USER_ONLY = new Set(['approve', 'allow-consent']);
 
@@ -68,7 +70,7 @@ function splitFrontmatter(text: string): { description: string; body: string } {
 }
 
 function rewrite(text: string, root: string): string {
-  return text.replaceAll(`\${CLAUDE_PLUGIN_ROOT}`, root).replaceAll('job-tracker:', PREFIX);
+  return text.replaceAll(`\${CLAUDE_PLUGIN_ROOT}`, root).replaceAll('laufbahn:', PREFIX);
 }
 
 function renderSkill(src: Source, root: string): string {
@@ -90,8 +92,9 @@ function renderSkill(src: Source, root: string): string {
 function removeGenerated(): void {
   if (!existsSync(SKILLS)) return;
   for (const d of readdirSync(SKILLS)) {
-    // Only directories this script wrote: a user's own job-tracker-* skill has no marker.
+    // Only directories this script wrote: a user's own laufbahn-* skill has no marker.
     if (d.startsWith(PREFIX) && existsSync(join(SKILLS, d, MARKER))) rmSync(join(SKILLS, d), { recursive: true, force: true });
+    if (d.startsWith(LEGACY.prefix) && existsSync(join(SKILLS, d, LEGACY.marker))) rmSync(join(SKILLS, d), { recursive: true, force: true });
   }
 }
 
@@ -117,14 +120,14 @@ function patchBlock(root: string, node: string): string {
   return [
     `${BEGIN} (written by ${join(root, 'scripts', 'dsh-install.ts')}; re-run it to update)`,
     '- insert:',
-    '    - id: job-tracker-tracker',
+    '    - id: laufbahn-tracker',
     "      name: '@deepseek-ai/dsh-mcp-client'",
     '      config:',
-    '        serverName: job_tracker',
+    '        serverName: laufbahn_tracker',
     '        transport: stdio',
     `        command: ${yamlString(node)}`,
     `        args: [${yamlString('--no-warnings')}, ${yamlString(join(root, 'servers', 'tracker', 'src', 'index.ts'))}]`,
-    '    - id: job-tracker-hooks',
+    '    - id: laufbahn-hooks',
     `      name: ${yamlString(BRIDGE)}`,
     '      config:',
     `        configPath: ${yamlString(join(root, 'hooks', 'dsh-hooks.json'))}`,
@@ -135,11 +138,14 @@ function patchBlock(root: string, node: string): string {
 
 // Merge our block into a profile's patch list without touching the user's own entries. Returns null when the
 // file is not a plain block sequence we can append to safely.
+function stripBlock(text: string, begin: string, endMark: string): string {
+  const start = text.indexOf(begin);
+  const end = text.indexOf(endMark);
+  return start >= 0 && end > start ? text.slice(0, start) + text.slice(end + endMark.length).replace(/^\n/, '') : text;
+}
+
 function mergePatch(existing: string, block: string | null): string | null {
-  const start = existing.indexOf(BEGIN);
-  const end = existing.indexOf(END);
-  let rest = existing;
-  if (start >= 0 && end > start) rest = existing.slice(0, start) + existing.slice(end + END.length).replace(/^\n/, '');
+  let rest = stripBlock(stripBlock(existing, BEGIN, END), LEGACY.begin, LEGACY.end);
   rest = rest.replace(/\s+$/, '');
   if (!block) return rest ? `${rest}\n` : '';
   const content = rest.split('\n').filter((l) => l.trim() && !l.trim().startsWith('#'));
@@ -172,7 +178,7 @@ function patchProfile(profile: string, block: string | null): void {
 removeGenerated();
 if (uninstall) {
   for (const profile of profiles) patchProfile(profile, null);
-  process.stdout.write(`Removed the job-tracker skills from ${SKILLS} and its entries from the ${profiles.join(', ')} profiles.\n`);
+  process.stdout.write(`Removed the laufbahn skills from ${SKILLS} and its entries from the ${profiles.join(', ')} profiles.\n`);
   process.exit(0);
 }
 
@@ -187,4 +193,4 @@ for (const profile of profiles) {
 }
 process.stdout.write(`Wrote ${count} skills to ${SKILLS} and patched the ${profiles.join(', ')} profiles.\n`);
 if (!dsh) process.stdout.write(`dsh is not on PATH. Install the hook bridge into each profile:\n${profiles.map((p) => `  dsh plugin --profile ${p} add ${BRIDGE}`).join('\n')}\n`);
-process.stdout.write(`Restart dsh, then type /job-tracker-setup. Check the wiring with: dsh --profile ${profiles[0]} --dump-config\n`);
+process.stdout.write(`Restart dsh, then type /laufbahn-setup. Check the wiring with: dsh --profile ${profiles[0]} --dump-config\n`);

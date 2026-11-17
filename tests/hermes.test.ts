@@ -14,8 +14,8 @@ import type { ToolStep } from '../plugin/hooks/lib/types.ts';
 let home: string;
 beforeEach(() => {
   home = mkdtempSync(join(tmpdir(), 'jh-hermes-'));
-  process.env.JOB_TRACKER_HOME = home;
-  delete process.env.JOB_TRACKER_DB;
+  process.env.LAUFBAHN_HOME = home;
+  delete process.env.LAUFBAHN_DB;
 });
 
 test('Hermes tool names map onto the mcp__server__tool shape the gates classify', () => {
@@ -70,10 +70,10 @@ test('post_tool_call steps are stored in Claude transcript shape with readable r
 });
 
 test('slash-skill messages unwrap to the typed command; only the user instruction counts', () => {
-  assert.deepEqual(unwrapSkillInvocation('/job-tracker:approve 12'), { text: '/job-tracker:approve 12', skill: null, args: null });
-  assert.deepEqual(unwrapSkillInvocation(FIXTURE), { text: '/job-tracker:approve 12', skill: 'job-tracker:approve', args: '12' });
+  assert.deepEqual(unwrapSkillInvocation('/laufbahn:approve 12'), { text: '/laufbahn:approve 12', skill: null, args: null });
+  assert.deepEqual(unwrapSkillInvocation(FIXTURE), { text: '/laufbahn:approve 12', skill: 'laufbahn:approve', args: '12' });
   assert.equal(userText([{ type: 'text', text: 'hello' }, { type: 'image_url', image_url: {} }]), 'hello');
-  assert.equal(userText(FIXTURE), '/job-tracker:approve 12');
+  assert.equal(userText(FIXTURE), '/laufbahn:approve 12');
 });
 
 // --- hooks/hermes.ts e2e ---
@@ -86,7 +86,7 @@ const HOOK = join(dirname(fileURLToPath(import.meta.url)), '..', 'plugin', 'hook
 const TRACKER = 'mcp__job_hunt_tracker__';
 
 function hermes(event: string, payload: Record<string, unknown>) {
-  const r = spawnSync(process.execPath, ['--no-warnings', HOOK, event], { input: JSON.stringify(payload), env: { ...process.env, JOB_TRACKER_HOME: home }, encoding: 'utf8' });
+  const r = spawnSync(process.execPath, ['--no-warnings', HOOK, event], { input: JSON.stringify(payload), env: { ...process.env, LAUFBAHN_HOME: home }, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   return r.stdout.trim() ? JSON.parse(r.stdout) : null;
 }
@@ -106,7 +106,7 @@ test('hermes.ts: connector send tools are blocked, unrelated tools pass silently
   assert.equal(hermes('pre_tool_call', { session_id: 'h1', tool_name: 'mcp__github__list_issues', args: {} }), null);
 });
 
-test('hermes.ts: a submit click needs the user approval typed as /job-tracker:approve', () => {
+test('hermes.ts: a submit click needs the user approval typed as /laufbahn:approve', () => {
   const role = verifiedRole();
   const sid = 'h2';
   hermes('pre_tool_call', { session_id: sid, tool_name: `${TRACKER}open_items`, args: {} }); // marks the session
@@ -142,7 +142,7 @@ test('hermes.ts: a submit is blocked for a posting applied to before, even after
   hermes('pre_tool_call', { session_id: sid, tool_name: `${TRACKER}open_items`, args: {} });
   hermes('post_tool_call', { session_id: sid, tool_call_id: 'n1', tool_name: 'browser_navigate', args: { url: 'https://jobs.ashbyhq.com/beta/1' }, result: JSON.stringify({ success: true, url: 'https://jobs.ashbyhq.com/beta/1' }) });
   hermes('post_tool_call', { session_id: sid, tool_call_id: 'n2', tool_name: 'browser_snapshot', args: {}, result: JSON.stringify({ success: true, snapshot: '- button "Submit application" [ref=e7]' }) });
-  const approved = hermes('pre_llm_call', { session_id: sid, user_message: `/job-tracker:approve ${role.id}` });
+  const approved = hermes('pre_llm_call', { session_id: sid, user_message: `/laufbahn:approve ${role.id}` });
   assert.match(approved.context, /gate_check fails: .*This posting was applied to before/);
   const out = hermes('pre_tool_call', { session_id: sid, tool_name: 'browser_click', args: { ref: '@e7' } });
   assert.equal(out.action, 'block');
@@ -151,7 +151,7 @@ test('hermes.ts: a submit is blocked for a posting applied to before, even after
 
 test('hermes.ts: a subagent turn cannot grant approval', () => {
   const role = verifiedRole();
-  const out = hermes('pre_llm_call', { session_id: 'child', parent_session_id: 'h3', user_message: `/job-tracker:approve ${role.id}` });
+  const out = hermes('pre_llm_call', { session_id: 'child', parent_session_id: 'h3', user_message: `/laufbahn:approve ${role.id}` });
   assert.equal(out, null);
   assert.match(hermes('pre_tool_call', { session_id: 'child', tool_name: 'browser_console', args: { expression: "document.querySelector('form').requestSubmit()" } }) ?.message ?? 'not-marked', /not-marked|approval/);
 });
@@ -166,7 +166,7 @@ test('hermes.ts: the browser cannot open or work the board', () => {
 
 test('hermes.ts: an unfinished sweep queues a nudge that the next turn receives', () => {
   const sid = 'h4';
-  hermes('pre_llm_call', { session_id: sid, user_message: '/job-tracker:sweep' });
+  hermes('pre_llm_call', { session_id: sid, user_message: '/laufbahn:sweep' });
   hermes('post_tool_call', { session_id: sid, tool_call_id: 'u1', tool_name: `${TRACKER}upsert_role`, args: { company: 'A', title: 'B' }, result: JSON.stringify({ role: { id: 1, title: 'B' }, created: true }) });
   const stop = hermes('post_llm_call', { session_id: sid });
   assert.equal(stop.action, 'continue');
@@ -178,7 +178,7 @@ test('hermes.ts: an unfinished sweep queues a nudge that the next turn receives'
 
 test('hermes.ts: an event written through a linked duplicate\'s old id counts for the role upsert_role returned', () => {
   const sid = 'h7';
-  hermes('pre_llm_call', { session_id: sid, user_message: '/job-tracker:sweep' });
+  hermes('pre_llm_call', { session_id: sid, user_message: '/laufbahn:sweep' });
   hermes('post_tool_call', { session_id: sid, tool_call_id: 'u1', tool_name: `${TRACKER}upsert_role`, args: { id: 2, title: 'B' }, result: JSON.stringify({ role: { id: 1, title: 'B' }, created: false }) });
   hermes('post_tool_call', { session_id: sid, tool_call_id: 't1', tool_name: `${TRACKER}transition`, args: { role_id: 2, to: 'dropped' }, result: JSON.stringify({ role: { id: 1, status: 'dropped' }, from: 'scored', to: 'dropped' }) });
   const stop = hermes('post_llm_call', { session_id: sid });

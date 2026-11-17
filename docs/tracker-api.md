@@ -3,13 +3,13 @@
 The tracker is the only writer to the job-hunt database. Skills, commands and agents read and write
 state through these tools only. There is no raw SQL tool.
 
-Server name in `.mcp.json`: `tracker`. The tools appear as `mcp__plugin_job-tracker_tracker__<tool>` in
+Server name in `.mcp.json`: `tracker`. The tools appear as `mcp__plugin_laufbahn_tracker__<tool>` in
 Claude Code and as `mcp__job_hunt_tracker__<tool>` in Hermes. Skills refer to them by the short tool name.
 
 Runtime: Node 22.18+ (`node:sqlite`, TypeScript run directly), zero runtime npm dependencies. Local only:
 `.mcp.json` starts `node servers/tracker/src/index.ts` over stdio. There is no network listener and no
 token; the optional board (see [Board](#board)) listens on `127.0.0.1` with a per-start token and
-stops after 30 idle minutes. Access is the OS user's permissions on `$JOB_TRACKER_HOME` (default `~/.job-tracker/`, created `0700`;
+stops after 30 idle minutes. Access is the OS user's permissions on `$LAUFBAHN_HOME` (default `~/.laufbahn/`, or an unmoved `~/.job-tracker/` from before the rename, created `0700`;
 the database and session files are `0600`). Tightening is best effort: on a filesystem that cannot
 chmod, a warning is logged and the tracker still starts. Data never lives in the plugin directory.
 
@@ -81,7 +81,7 @@ closed (from queued | applied | interviewing | offer), with outcome: rejected | 
 | `pipeline_summary` | `stale_after_days?` (14) | Counts by status, live processes (interviewing, offer), awaiting reply, rejections, fresh and stale queue |
 | `follow_ups` | `after_days?` (7), `interview_after_days?` (1), each 0 to 365 | Read-only. What to chase, from local history. `applications`: cards still at `applied` with no reply since the first `applied` event (a reply is any `employer` event, an `interviewing` or `offer` status, or a `rejected` close, on any row of the linked group) and no event of any kind for `after_days`, so a recorded follow-up note restarts the wait. Each `{role_id, company, title, url, source, applied_at, last_activity_at, days_waiting, days_since_activity}`, longest silence first. `interviews`: `scheduled` interviews whose `starts_at` is at least `interview_after_days` old on a role not closed or dropped, with no event since it started (its own `interviewing` move and `interview_changed` log do not count) and no later interview booked. Each `{interview_id, role_id, company, title, stage, starts_at, days_since}`, oldest first. Complements `open_items`, which has the queue, drafts, interviews to book and upcoming interviews. |
 | `funnel_stats` | `since?`, `until?` (`YYYY-MM-DD`, local days in `filters.timezone`, both inclusive) | Read-only conversion numbers, one card per linked group. `status_counts` (current status) and `reached` (cards whose status or any status event got to each stage of found → … → offer, so a card recorded straight to applied counts for every stage before it) cover cards first seen in the window. `conversion`: `[{from, to, from_count, to_count, rate}]` for each consecutive stage pair. `applied`: `{count, replied, reply_rate, interviewed, interview_rate, median_days_to_first_reply, median_days_to_interview}` for cards whose first `applied` event is in the window (a reply as in `follow_ups`; an interview is the first `interviewing` event). `reply_rate_by_source`: the same per `roles.source` (lowercased, `unknown` when empty), most applications first. `weekly_applied`: `[{week_start, applied}]`, weeks starting Monday in local time. Rates are 0 to 1 with three decimals and `null` when nothing is counted; medians are days with one decimal, `null` when none. |
-| `export_data` | `format` (`json`\|`csv`), `tables?` (any of `roles`, `companies`, `events`, `interviews`; default all), `name?` (file stem: letters, digits, `-`, `_`, at most 64, no path or extension) | Writes the tables, read in one transaction, to `exports/` next to the tracker database (folder 0700, files 0600). `json`: one file `<name>.json` `{exported_at, schema_version, tables: {<table>: [rows]}}`, for a backup. `csv`: one file `<name>-<table>.csv` per table (header row, RFC 4180 quoting, CRLF), for a spreadsheet; a text cell that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading `'` so a spreadsheet does not run it as a formula. The default name is `job-tracker-<UTC timestamp>`. An existing file (or a symlink in its place) is refused, never overwritten. Returns `{format, dir, path (json only), files: [{table, path, rows}], counts, exported_at}`. Rows hold personal data: only when the user asks. Not available on an in-memory tracker. |
+| `export_data` | `format` (`json`\|`csv`), `tables?` (any of `roles`, `companies`, `events`, `interviews`; default all), `name?` (file stem: letters, digits, `-`, `_`, at most 64, no path or extension) | Writes the tables, read in one transaction, to `exports/` next to the tracker database (folder 0700, files 0600). `json`: one file `<name>.json` `{exported_at, schema_version, tables: {<table>: [rows]}}`, for a backup. `csv`: one file `<name>-<table>.csv` per table (header row, RFC 4180 quoting, CRLF), for a spreadsheet; a text cell that starts with `=`, `+`, `-`, `@`, tab or CR gets a leading `'` so a spreadsheet does not run it as a formula. The default name is `laufbahn-<UTC timestamp>`. An existing file (or a symlink in its place) is refused, never overwritten. Returns `{format, dir, path (json only), files: [{table, path, rows}], counts, exported_at}`. Rows hold personal data: only when the user asks. Not available on an in-memory tracker. |
 | `open_board` | `open?` (bool, default false: also open the default browser) | `{reused, opened, url?}`. With `open: true` and the browser opened, no `url`: the token stays out of the model's context. Otherwise `url`, and the text result is `Board: <url>`. Starts the local board for this database, or reuses the running one. See [Board](#board). |
 | `import_legacy` | `applied_log?` (markdown), `preferences?` (markdown), `queue?` (`[{filename, content}]`), `documents?` (`{profile, stories, reusable-answers}`), `path?` (local only: a `pipeline/` folder) | Import counts and unparsed rows. If a queue note's URL matches two roles that are not linked, the import stops with an error naming them and writes nothing. Check them with `get_role`, link them with `link_duplicate_role` if they are one posting, then import again. |
 
@@ -99,8 +99,8 @@ Under **Needs you**:
 2. **Other open actions**, whatever their age: questions on roles outside the queue, drafts not read back, bookings
    still to confirm, and audit failures.
 3. **Still waiting (N)**: the queued roles with no change in the scope, stale ones included. The text gives the
-   count of those untouched for 14+ days, names each of them with what it asks (its question, blocker, or the decision itself), and points to `/job-tracker:board` and
-   `/job-tracker:status`. It does not say they were researched or decided today.
+   count of those untouched for 14+ days, names each of them with what it asks (its question, blocker, or the decision itself), and points to `/laufbahn:board` and
+   `/laufbahn:status`. It does not say they were researched or decided today.
 
 `queue_activity` is `{new_or_changed, waiting, stale_waiting}`, canonical role ids. Fresh roles come in `open_items`
 queue order, then the stale ones. `waiting` includes `stale_waiting`; each role is in exactly one of `new_or_changed`
@@ -338,10 +338,10 @@ send and delete gates still apply separately. Disabling the preference takes eff
 ## Session approvals (hooks, not tools)
 
 With auto-apply off, approvals come only from a standalone command in the user's own prompt, never from a command mention
-or tool call. The `UserPromptSubmit` hook recognises `/job-tracker:approve <role_id>` (or `/approve
+or tool call. The `UserPromptSubmit` hook recognises `/laufbahn:approve <role_id>` (or `/approve
 <role_id>`) and stores a one-use approval for that role, browser page and tab in the session state at
-`$JOB_TRACKER_HOME/sessions/<session_id>.json`. The submit-click hook requires an exact target match and
-consumes the approval before allowing the attempt. Similarly `/job-tracker:allow-consent <role_id>` lets
+`$LAUFBAHN_HOME/sessions/<session_id>.json`. The submit-click hook requires an exact target match and
+consumes the approval before allowing the attempt. Similarly `/laufbahn:allow-consent <role_id>` lets
 consent boxes be ticked only on that role's current page and tab.
 
 ## Triage guard (hooks)

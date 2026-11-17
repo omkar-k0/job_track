@@ -12,7 +12,7 @@ prompt.
 ## Harness
 
 - A scratch tracker only: `npm run tracker -- --db /tmp/d1-eval.db`. Never the real database, and never the
-  installed plugin's `mcp__plugin_job-tracker_tracker__*` tools.
+  installed plugin's `mcp__plugin_laufbahn_tracker__*` tools.
 - No real inbox, calendar, board or employer site. Nothing is sent, submitted or applied. The auditor gets the
   rendered report, its `queue_activity`, the `run_id` and the run's start time from the harness, not from a live sweep.
 - Invented companies: **Acme Robotics**, **Zenith Labs**, **Northwind Data**.

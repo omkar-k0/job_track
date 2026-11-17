@@ -63,7 +63,7 @@ Observed behaviour per ATS and widget. Treat each recipe as one option among sev
 | Anschreiben (upload or text) | The role's `cover_letter_pdf` file, or the `cover_note` text if the field is text |
 | Zeugnisse, Immatrikulationsbescheinigung, Praktikumsbescheinigung | The user's own files: leave the slot and list it |
 | Wie haben Sie von uns erfahren | The true source |
-| Datenschutzhinweise gelesen, Einwilligung, Talentpool, Newsletter | Consent: leave unticked, queue with the question; see `/job-tracker:allow-consent` |
+| Datenschutzhinweise gelesen, Einwilligung, Talentpool, Newsletter | Consent: leave unticked, queue with the question; see `/laufbahn:allow-consent` |
 
 ## Typeform-style one-question-at-a-time forms
 

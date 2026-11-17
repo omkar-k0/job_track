@@ -2,12 +2,20 @@
 
 ## Unreleased
 
+- **Renamed to Laufbahn.** The plugin is now `laufbahn`: install with `/plugin marketplace add
+  omkar-k0/laufbahn` and `/plugin install laufbahn@laufbahn`, and the commands are `/laufbahn:setup`,
+  `/laufbahn:sweep` and so on. Tracker tools appear as `mcp__plugin_laufbahn_tracker__<tool>`, and the hooks
+  match the new names. The repository moves to `omkar-k0/laufbahn` (GitHub redirects the old URL).
+- **New data folder `~/.laufbahn`, with a fallback.** If `~/.laufbahn` is missing and `~/.job-tracker`
+  exists, the plugin keeps using the old folder and prints to stderr how to move it; it never moves your data.
+  The variables are now `LAUFBAHN_HOME`, `LAUFBAHN_DB` and `LAUFBAHN_NODE`; the old `JOB_TRACKER_*` names still
+  work. The Hermes and DeepSeek Harness installers remove the old `job-tracker` link, skills and profile block.
 - **Board restyled as Laufbahn.** The board page has a new name and an editorial look: a framed italic "L"
   monogram, Times New Roman throughout with small-caps labels and tabular figures, ivory, ink and oxblood with
   a matching dark theme, per-status colours, hairline rules and 2px corners, and one inline outline icon set.
   Every text colour pair in both themes meets WCAG AA. The bundled web fonts are gone, so the server serves only
-  the page, its stylesheet and its script, and the CSP no longer allows fonts. Features, keyboard use and the
-  plugin's name and commands are unchanged.
+  the page, its stylesheet and its script, and the CSP no longer allows fonts. Features and keyboard use are
+  unchanged.
 
 ## 0.6.0
 

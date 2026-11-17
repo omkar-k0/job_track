@@ -13,7 +13,7 @@ the prompt.
 ## Harness
 
 - A scratch tracker only: `npm run tracker -- --db /tmp/b4-eval.db`. Never the real database, and never the
-  installed plugin's `mcp__plugin_job-tracker_tracker__*` tools.
+  installed plugin's `mcp__plugin_laufbahn_tracker__*` tools.
 - Fake external services only (a local HTTP server with invented postings, a static fake source, a fake mailbox).
   Invented companies: **Acme Robotics**, **Zenith Labs**. No real inbox, board or employer site.
 - Seed rules with `add_rule` / `set_rule_types` through the scratch server. Rules are made-up preferences.
@@ -45,7 +45,7 @@ the prompt.
 - Seed: a rule typed `forms` only: "Answer notice period as '1 month'".
 - Input: a sourcer run on any fake source.
 - Expect: the sourcer's `list_rules` call carries `types: ["sourcing"]`; the `forms` rule is not in the result
-  and is not applied or mentioned. The same rule is returned when `/job-tracker:apply` loads `forms`.
+  and is not applied or mentioned. The same rule is returned when `/laufbahn:apply` loads `forms`.
 - Result: UNEXECUTED
 
 ### 4. A long rule arrives through detail chunks (scorer)
@@ -82,16 +82,16 @@ spans two pages) through each consumer, and check the `types` argument and that 
 |---|---|---|---|---|
 | sourcer (via sweep) | `["sourcing"]` | UNEXECUTED | UNEXECUTED | UNEXECUTED |
 | scorer (via sweep) | `["scoring"]` | UNEXECUTED | UNEXECUTED | UNEXECUTED |
-| form (`/job-tracker:apply`, fill-form) | `["forms", "scoring", "writing"]` | UNEXECUTED | UNEXECUTED | UNEXECUTED |
+| form (`/laufbahn:apply`, fill-form) | `["forms", "scoring", "writing"]` | UNEXECUTED | UNEXECUTED | UNEXECUTED |
 | inbox (`inbox-and-calendar`) | `["inbox"]`, plus `writing` when it drafts | UNEXECUTED | UNEXECUTED | UNEXECUTED |
 
-- Also check on Hermes and DeepSeek Harness that the subagent context (the text of `job-tracker:agent-<name>` plus
+- Also check on Hermes and DeepSeek Harness that the subagent context (the text of `laufbahn:agent-<name>` plus
   the sweep's inputs) carries the rule types, and that `${HERMES_SKILL_DIR}/../templates/rules.md` (commands and
   agents) and `${HERMES_SKILL_DIR}/../../templates/rules.md` (skills) resolve to the same file. If the host does not
   expand the path, the model cannot read the protocol: record that as a failure, not as a pass.
 - Result: UNEXECUTED
 
-### 8. `/job-tracker:correct` classifies and checks all types
+### 8. `/laufbahn:correct` classifies and checks all types
 
 - Seed: an old `global` rule that the new correction supersedes, spanning page 2 of an unfiltered listing.
 - Input: a correction that should become a `scoring` rule.
@@ -99,9 +99,9 @@ spans two pages) through each consumer, and check the `types` argument and that 
   `add_rule` carries `types: ["scoring"]`; `deactivate_rule` is not called until the user says yes.
 - Result: UNEXECUTED
 
-### 9. A rule written by `/job-tracker:correct` is read again by the next score in the same session
+### 9. A rule written by `/laufbahn:correct` is read again by the next score in the same session
 
-- Seed: a few `scoring` rules; the session first runs `/job-tracker:correct` (which reads all types and then calls
+- Seed: a few `scoring` rules; the session first runs `/laufbahn:correct` (which reads all types and then calls
   `add_rule` with `types: ["scoring"]`), then scores a fake role in the same session without restarting.
 - Input: the role matches only the rule `/correct` just added.
 - Expect: the scorer (or `score-role`) calls `list_rules` again from the first page rather than reusing the

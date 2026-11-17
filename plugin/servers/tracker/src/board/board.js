@@ -17,10 +17,10 @@ const PERIODS = { year: '/yr', month: '/mo', day: '/day', hour: '/hr' };
 // Rough working periods per year, used only to order pay in the table.
 const PER_YEAR = { year: 1, month: 12, day: 220, hour: 1800 };
 const OUTCOMES = ['rejected', 'withdrawn', 'role_closed'];
-const STOPPED = 'The board has stopped. Run /job-tracker:board in Claude to start it again.';
-const STALE = 'This link is out of date. Run /job-tracker:board in Claude for a fresh one.';
-const TOKEN_KEY = 'job-tracker-board-token';
-const THEME_KEY = 'job-tracker-board-theme';
+const STOPPED = 'The board has stopped. Run /laufbahn:board in Claude to start it again.';
+const STALE = 'This link is out of date. Run /laufbahn:board in Claude for a fresh one.';
+const TOKEN_KEY = 'laufbahn-board-token';
+const THEME_KEY = 'laufbahn-board-theme';
 const SORTS = {
   company: { label: 'Company', get: (r) => r.company.toLowerCase(), text: true },
   title: { label: 'Role', get: (r) => r.title.toLowerCase(), text: true, cls: 'hide-sm' },
@@ -497,7 +497,7 @@ function renderEmpty(kind) {
   action.type = 'button';
   if (kind === 'empty') {
     title.textContent = 'Nothing tracked yet';
-    text.textContent = 'Ask Claude to run a sweep (/job-tracker:sweep) and the roles it finds will show up here.';
+    text.textContent = 'Ask Claude to run a sweep (/laufbahn:sweep) and the roles it finds will show up here.';
     action.hidden = true;
   } else if (kind === 'nomatch') {
     title.textContent = 'No roles match';
@@ -1381,7 +1381,7 @@ readHash();
 syncControls();
 writeHash();
 if (!token) {
-  say('This link has no token. Run /job-tracker:board in Claude for a fresh link.', { error: true });
+  say('This link has no token. Run /laufbahn:board in Claude for a fresh link.', { error: true });
 } else {
   refresh().then(() => {
     if (view && state.role != null) openRole(state.role, null);

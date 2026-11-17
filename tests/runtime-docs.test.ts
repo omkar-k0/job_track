@@ -31,7 +31,7 @@ test('setup step 0 never loops on restarts and never reinstalls over a shadowed 
   assert.match(s, /Have you quit and reopened the app since Node\.js was installed\?/);
   assert.match(s, /"<path>" --no-warnings "\$\{CLAUDE_PLUGIN_ROOT\}\/servers\/tracker\/src\/index\.ts" < \/dev\/null/);
   assert.match(s, /\$null \| & "<path>" --no-warnings "\$\{CLAUDE_PLUGIN_ROOT\}\/servers\/tracker\/src\/index\.ts"/);
-  assert.match(s, /`stdio ready`[^\n]*https:\/\/github\.com\/omkar-k0\/job_track[^\n]*do not suggest another restart/i);
+  assert.match(s, /`stdio ready`[^\n]*https:\/\/github\.com\/omkar-k0\/laufbahn[^\n]*do not suggest another restart/i);
   // Exit 1 is the only route to the installer; exit 3 stops without it.
   assert.match(s, /\*\*Check fails \(exit 1\)\*\*/);
   assert.match(s, /\*\*Exit 3\*\*[^\n]*older copy of Node\.js[^\n]*Do not offer the installer/);
@@ -44,7 +44,7 @@ test('setup step 0 never loops on restarts and never reinstalls over a shadowed 
 test('every tracker command explains a missing runtime in one sentence', () => {
   const missing = /\*\*If the tracker tools are missing\*\* \(search for them first if tools are deferred\), or a hook error says `node` could not start:/;
   for (const name of ['apply', 'status', 'prep', 'cover-letter', 'triage', 'correct', 'import', 'board']) {
-    assert.match(read(`commands/${name}.md`), new RegExp(`${missing.source}.*offer to run \`\\/job-tracker:setup\``), name);
+    assert.match(read(`commands/${name}.md`), new RegExp(`${missing.source}.*offer to run \`\\/laufbahn:setup\``), name);
   }
   assert.match(read('commands/sweep.md'), new RegExp(`${missing.source}.*Record nothing\\.`));
 });
@@ -70,10 +70,10 @@ test('the board command opens the browser and the sweep report points to it', ()
   assert.match(board, /Call `open_board` with `open: true`\./);
   assert.match(board, /Why: /);
   const sweep = read('commands/sweep.md');
-  assert.match(sweep, /End the report with the question `Open the job board now\? Reply yes, or run \/job-tracker:board later\.` as its final line\./);
+  assert.match(sweep, /End the report with the question `Open the job board now\? Reply yes, or run \/laufbahn:board later\.` as its final line\./);
   assert.match(sweep, /Never open the board yourself or call `open_board` with `open: true` during the sweep\. Why: /);
-  assert.match(sweep, /If the user replies yes in this session, follow `\/job-tracker:board` \(call `open_board` with `open: true`\)\./);
-  assert.doesNotMatch(sweep, /Board: run \/job-tracker:board/);
+  assert.match(sweep, /If the user replies yes in this session, follow `\/laufbahn:board` \(call `open_board` with `open: true`\)\./);
+  assert.doesNotMatch(sweep, /Board: run \/laufbahn:board/);
 });
 
 // Rule delivery (B4): list_rules pages, so a prompt that calls it once sees only part of the rules. The retrieval

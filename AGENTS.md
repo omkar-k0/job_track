@@ -7,7 +7,7 @@ This repo is a Claude Code (and Hermes Agent) plugin for a job search: a hand-ro
 over stdio backed by `node:sqlite` (`plugin/servers/tracker/`), safety hooks (`plugin/hooks/`), and markdown
 skills, commands and subagents. Node runs the TypeScript directly. There is no build step and no runtime npm
 dependency. Everything the plugin ships lives in `plugin/` (the marketplace's `source`); tests, docs and dev
-tooling stay outside it so they are not part of what users install or what the directory review scans. The plugin's name, and the prefix of its commands, is `job-tracker` (`/job-tracker:sweep`).
+tooling stay outside it so they are not part of what users install or what the directory review scans. The plugin's name, and the prefix of its commands, is `laufbahn` (`/laufbahn:sweep`).
 
 ## Commands
 
@@ -19,7 +19,7 @@ node --no-warnings --test tests/tracker/tracker.test.ts   # one file
 npm run lint           # biome check (lint + import order); CI runs `biome ci`
 npm run lint:fix       # apply safe fixes
 npm run tracker -- --db /tmp/t.db   # run the MCP server on stdio against a scratch DB
-npm run dev            # Claude Code with this worktree's plugin/ on a fresh copy of the real DB (~/.job-tracker-dev)
+npm run dev            # Claude Code with this worktree's plugin/ on a fresh copy of the real DB (~/.laufbahn-dev)
 npm run prod           # back up the real DB, update the released plugin, start Claude Code on it
 ```
 
@@ -52,7 +52,7 @@ them on Ubuntu and macOS with Node 22.18 and 24.
 | `dev/` | dev tools only (`package.json`, lockfile, `node_modules`, and `session.ts` behind `npm run dev` / `npm run prod`); never shipped as runtime dependencies |
 | `.github/workflows/ci.yml` | CI: lint, and tests on Ubuntu and macOS with Node 22.18 and 24 |
 | `.claude/` | project instructions for Claude Code sessions (`CLAUDE.md`) and the `create-pr` skill |
-| `PRIVACY.md` | privacy policy: no telemetry, all data local in `~/.job-tracker` |
+| `PRIVACY.md` | privacy policy: no telemetry, all data local in `~/.laufbahn` |
 
 ## TypeScript rules (Node type stripping, no build)
 

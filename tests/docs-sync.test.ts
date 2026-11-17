@@ -26,11 +26,11 @@ test('docs page lists every shipped command', () => {
     .map((f) => f.replace('.md', ''));
 
   for (const name of commandFiles) {
-    // Commands ship as /job-tracker:<name> in the docs
+    // Commands ship as /laufbahn:<name> in the docs
     assert.match(
       docs,
-      new RegExp(`/job-tracker:${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
-      `docs mentions /job-tracker:${name}`,
+      new RegExp(`/laufbahn:${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`),
+      `docs mentions /laufbahn:${name}`,
     );
   }
 });
@@ -45,7 +45,7 @@ test('docs page has expected sections', () => {
 
 test('docs page links to the GitHub repo', () => {
   assert.ok(
-    docs.includes('github.com/omkar-k0/job_track'),
+    docs.includes('github.com/omkar-k0/laufbahn'),
     'docs links to GitHub repo',
   );
 });
@@ -64,6 +64,6 @@ test('docs page links to developer docs in the repo', () => {
 
 test('docs page install steps match the marketplace manifest', () => {
   const market = JSON.parse(readRepo('.claude-plugin/marketplace.json'));
-  assert.ok(docs.includes(`/plugin install job-tracker@${market.name}`), 'docs install line uses the marketplace name');
-  assert.ok(docs.includes('/plugin marketplace add omkar-k0/job_track'), 'docs marketplace add line');
+  assert.ok(docs.includes(`/plugin install laufbahn@${market.name}`), 'docs install line uses the marketplace name');
+  assert.ok(docs.includes('/plugin marketplace add omkar-k0/laufbahn'), 'docs marketplace add line');
 });
