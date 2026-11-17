@@ -103,15 +103,17 @@ See the [privacy policy](PRIVACY.md).
 | Personal data and consent | Passport, nationality, age, DOB, gender, marital, ID fields denied; consent boxes stay unticked unless you allow them. |
 | Stop | A sweep session cannot end until every role has an event and the report was rendered. |
 
-## Web demo
+## Website and web demo
 
-A read-only demo of the board runs as a static page, for a look before installing. It uses made-up
-companies and roles, and its moves and notes live only in your browser tab until you reload. The real
-Laufbahn runs on your own machine; the demo shares only the board's page, not the plugin or any data.
+A small static site, with a navbar and four pages: **Home** (what Laufbahn does and won't do), **How does it
+work?**, **Install** (the one-time steps, with copy buttons) and **Live demo**. The live demo is a read-only
+copy of the board on made-up companies and roles; its moves and notes live only in your browser tab until you
+reload. The real Laufbahn runs on your own machine; the site shares only the board's page, not the plugin or
+any data. It uses no framework, web fonts, analytics or outside requests.
 
-Build it with `node dev/build-web.mjs` (no install needed). It copies the board into `web-dist/` and adds a
-small script that answers the board's API from the fixtures in `dev/web-demo/`. To deploy it on Vercel,
-see [docs/deploy.md](docs/deploy.md).
+Build it with `node dev/build-web.mjs` (no install needed). The pages come from `dev/web-site/`; the build
+copies the board into `web-dist/` as the demo page and adds a small script that answers the board's API from
+the fixtures in `dev/web-demo/`. To deploy it on Vercel, see [docs/deploy.md](docs/deploy.md).
 
 ## Development
 

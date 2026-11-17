@@ -1,8 +1,10 @@
-# Deploying the web demo on Vercel
+# Deploying the website on Vercel
 
-The web demo is a static, read-only copy of the board with made-up data (see
-[README: Web demo](../README.md#web-demo)). It does not run the plugin, the tracker or any server code, and it
-holds no personal data. All its settings live in [`vercel.json`](../vercel.json):
+The site is static: a home page, `/how-it-works`, `/install`, and `/demo`, a read-only copy of the board with
+made-up data (see [README: Website and web demo](../README.md#website-and-web-demo)), plus a `404.html`.
+`node dev/build-web.mjs` generates it into `web-dist/`: page sources, `site.css` and `site.js` are in
+`dev/web-site/`, the demo shim in `dev/web-demo/`. It does not run the plugin, the tracker or any server code,
+and it holds no personal data. All its settings live in [`vercel.json`](../vercel.json):
 
 | Setting | Value |
 |---|---|
@@ -10,7 +12,8 @@ holds no personal data. All its settings live in [`vercel.json`](../vercel.json)
 | Install command | `true` (nothing to install: the build has no dependencies) |
 | Build command | `node dev/build-web.mjs` |
 | Output directory | `web-dist` |
-| Headers | the board's Content-Security-Policy, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff` |
+| Clean URLs | `"cleanUrls": true`: `install.html` is served as `/install`, and `/install.html` redirects to it |
+| Headers | a strict Content-Security-Policy (everything is served from the site's own files: no inline scripts or styles), `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `X-Content-Type-Options: nosniff` |
 
 ## First deploy (Git integration)
 
@@ -41,4 +44,6 @@ node dev/build-web.mjs
 python3 -m http.server 8000 --bind 127.0.0.1 --directory web-dist
 ```
 
-Then open <http://127.0.0.1:8000/>. Python's server does not send the `vercel.json` headers; Vercel does.
+Then open <http://127.0.0.1:8000/>. Python's server does not send the `vercel.json` headers, and it does not
+do clean URLs: the navbar links (`/install`, `/demo`) will 404 there, so open `/install.html` and
+`/demo.html` directly, or use any static server that serves `name.html` for `/name`. Vercel does both.

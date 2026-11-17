@@ -16,3 +16,16 @@
 @media (max-width: 700px) {
   .demo-banner { margin: 0 -16px 8px; padding: 6px 16px; text-align: left; }
 }
+
+/* "Back to site" link in the board's header row (dev/build-web.mjs adds it before the theme button). */
+.site-back {
+  flex: none;
+  font-size: var(--text-body);
+  font-variant-caps: all-small-caps;
+  font-feature-settings: "smcp" 1, "c2sc" 1;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.site-back:hover { text-decoration: underline; }
